@@ -32,18 +32,21 @@ export default function CapturePage() {
   return (
     <div className="flex h-full flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto px-5 pt-6">
+        <p className="font-condensed text-xs font-bold uppercase tracking-wide text-brand-green">
+          Занотувати
+        </p>
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Що в голові?"
           autoFocus
-          className="h-full w-full resize-none bg-transparent text-2xl leading-relaxed text-neutral-900 outline-none placeholder:text-neutral-300 dark:text-neutral-50 dark:placeholder:text-neutral-700"
+          className="h-full w-full resize-none bg-transparent pt-2 text-2xl leading-relaxed text-brand-text outline-none placeholder:text-neutral-300"
         />
       </div>
 
       <div className="flex flex-col items-center gap-3 px-5 pb-5">
         <p
-          className={`text-sm font-medium text-emerald-600 transition-opacity ${
+          className={`font-condensed text-sm font-bold uppercase tracking-wide text-brand-green transition-opacity ${
             showSaved ? "opacity-100" : "opacity-0"
           }`}
         >
@@ -57,8 +60,8 @@ export default function CapturePage() {
             disabled={!isSupported}
             aria-pressed={isListening}
             aria-label={isListening ? "Зупинити диктування" : "Диктувати голосом"}
-            className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-white transition disabled:opacity-30 ${
-              isListening ? "animate-pulse bg-red-500" : "bg-neutral-900 dark:bg-neutral-100 dark:text-neutral-900"
+            className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-md text-white transition disabled:opacity-30 ${
+              isListening ? "animate-pulse bg-red-600" : "bg-brand-dark"
             }`}
           >
             <MicIcon className="h-7 w-7" />
@@ -68,14 +71,14 @@ export default function CapturePage() {
             type="button"
             onClick={handleSave}
             disabled={!text.trim()}
-            className="h-16 flex-1 rounded-full bg-neutral-900 text-lg font-semibold text-white transition disabled:opacity-30 dark:bg-neutral-100 dark:text-neutral-900"
+            className="h-16 flex-1 rounded-md bg-brand-green font-condensed text-lg font-bold uppercase tracking-wide text-white transition active:bg-brand-green-strong disabled:opacity-30"
           >
             Зберегти
           </button>
         </div>
 
         {!isSupported && (
-          <p className="text-center text-xs text-neutral-400">
+          <p className="text-center text-xs text-brand-muted">
             Диктування голосом не підтримується в цьому браузері — можна просто писати текст.
           </p>
         )}

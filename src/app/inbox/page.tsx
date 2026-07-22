@@ -25,17 +25,17 @@ export default function InboxPage() {
         {inboxTasks.map((task) => (
           <li
             key={task.id}
-            className="flex items-center gap-3 rounded-2xl border border-neutral-200 p-4 dark:border-neutral-800"
+            className="flex items-center gap-3 rounded-md bg-brand-surface p-4 shadow-sm"
           >
             <button
               type="button"
               onClick={() => toggleDone(task.id)}
               aria-pressed={task.done}
               aria-label="Позначити виконаним"
-              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 transition ${
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md border-2 transition ${
                 task.done
-                  ? "border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900"
-                  : "border-neutral-300 dark:border-neutral-700"
+                  ? "border-brand-green bg-brand-green text-white"
+                  : "border-neutral-300"
               }`}
             >
               {task.done && <CheckIcon className="h-4 w-4" />}
@@ -43,7 +43,7 @@ export default function InboxPage() {
 
             <p
               className={`flex-1 text-base ${
-                task.done ? "text-neutral-400 line-through" : "text-neutral-900 dark:text-neutral-50"
+                task.done ? "text-neutral-400 line-through" : "text-brand-text"
               }`}
             >
               {task.text}
@@ -52,7 +52,7 @@ export default function InboxPage() {
             <button
               type="button"
               onClick={() => moveToToday(task.id)}
-              className="shrink-0 rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white dark:bg-neutral-100 dark:text-neutral-900"
+              className="shrink-0 rounded-md bg-brand-dark px-4 py-2 font-condensed text-sm font-bold uppercase tracking-wide text-white"
             >
               Сьогодні
             </button>

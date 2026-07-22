@@ -1,16 +1,18 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Roboto, Roboto_Condensed } from "next/font/google";
 import { BottomNav } from "@/components/bottom-nav";
 import { TasksProvider } from "@/lib/tasks-context";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const roboto = Roboto({
+  variable: "--font-roboto",
+  weight: ["400", "500", "700"],
   subsets: ["latin", "cyrillic"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const robotoCondensed = Roboto_Condensed({
+  variable: "--font-roboto-condensed",
+  weight: ["400", "700"],
   subsets: ["latin", "cyrillic"],
 });
 
@@ -32,8 +34,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="uk" className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-      <body className="bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-50">
+    <html lang="uk" className={`${roboto.variable} ${robotoCondensed.variable} antialiased`}>
+      <body className="bg-brand-bg text-brand-text">
         <TasksProvider>
           <div className="flex h-dvh flex-col overscroll-none">
             <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
