@@ -5,12 +5,27 @@ const MAX_ATTEMPTS = 2;
 
 const SYSTEM_PROMPT =
   "Ти розбираєш нотатку користувача українською мовою на окремі конкретні задачі. " +
-  'Поверни лише JSON-об\'єкт форми {"tasks": ["...", "..."]} — короткі формулювання задач у наказовому стилі, ' +
-  "без нумерації, дат чи пояснень. Якщо в тексті лише одна задача — поверни масив з одним елементом. " +
-  "ВАЖЛИВО: усі задачі в масиві мають бути написані українською мовою — тією ж мовою, що й вхідний текст. " +
-  "Не перекладай і не переписуй англійською.";
+  'Поверни лише JSON-об\'єкт форми {"tasks": [{"title": "...", "today": true}]}. ' +
+  '"title" — коротке формулювання задачі у наказовому стилі, без слів "сьогодні"/"завтра"/"післязавтра" всередині, без нумерації. ' +
+  '"today" — true, лише якщо в тексті прямо сказано, що це на сьогодні; якщо згадано "завтра", "післязавтра" ' +
+  "чи інший майбутній момент, або дату взагалі не вказано — false. " +
+  "КРИТИЧНО ВАЖЛИВО: не вигадуй жодних дій, яких немає в тексті користувача. Кожна задача має відповідати " +
+  "конкретній дії, згаданій у вхідному тексті — нічого не додавай і не змінюй суть. " +
+  "Усі назви задач пиши українською мовою — тією ж, що й вхідний текст, без перекладу.";
 
-async function requestTasks(apiKey: string, model: string, text: string): Promise<string[]> {
+const EXAMPLE_INPUT =
+  "Сьогодні треба попрацювати над звітом, завтра купити хліб, а післязавтра відвезти документи в банк";
+const EXAMPLE_OUTPUT = JSON.stringify({
+  tasks: [
+    { title: "Попрацювати над звітом", today: true },
+    { title: "Купити хліб", today: false },
+    { title: "Відвезти документи в банк", today: false },
+  ],
+});
+
+type ParsedTask = { title: string; today: boolean };
+
+async function requestTasks(apiKey: string, model: string, text: string): Promise<ParsedTask[]> {
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -22,6 +37,8 @@ async function requestTasks(apiKey: string, model: string, text: string): Promis
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: EXAMPLE_INPUT },
+        { role: "assistant", content: EXAMPLE_OUTPUT },
         { role: "user", content: text },
       ],
     }),
@@ -42,7 +59,10 @@ async function requestTasks(apiKey: string, model: string, text: string): Promis
   const tasks = (parsed as { tasks?: unknown })?.tasks;
   if (!Array.isArray(tasks)) return [];
 
-  return tasks.filter((t) => typeof t === "string" && t.trim()).map((t) => t.trim());
+  return tasks
+    .filter((t): t is { title: unknown; today: unknown } => typeof t === "object" && t !== null)
+    .filter((t) => typeof t.title === "string" && t.title.trim())
+    .map((t) => ({ title: (t.title as string).trim(), today: t.today === true }));
 }
 
 export async function POST(request: Request) {
@@ -62,7 +82,7 @@ export async function POST(request: Request) {
 
   const model = process.env.OPENROUTER_MODEL ?? DEFAULT_MODEL;
 
-  let tasks: string[] = [];
+  let tasks: ParsedTask[] = [];
   for (let attempt = 0; attempt < MAX_ATTEMPTS && tasks.length === 0; attempt++) {
     tasks = await requestTasks(apiKey, model, text);
   }

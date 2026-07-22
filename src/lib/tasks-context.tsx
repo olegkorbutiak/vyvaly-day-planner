@@ -40,20 +40,22 @@ function writeTasks(updater: (prev: Task[]) => Task[]) {
   listeners.forEach((listener) => listener());
 }
 
-function createTask(text: string): Task {
+function createTask(text: string, scheduledForToday = false): Task {
   return {
     id: crypto.randomUUID(),
     text,
     createdAt: Date.now(),
     done: false,
-    scheduledForToday: false,
+    scheduledForToday,
   };
 }
+
+export type ParsedTask = { text: string; scheduledForToday?: boolean };
 
 type TasksContextValue = {
   tasks: Task[];
   addTask: (text: string) => void;
-  addTasks: (texts: string[]) => void;
+  addTasks: (parsedTasks: ParsedTask[]) => void;
   toggleDone: (id: string) => void;
   moveToToday: (id: string) => void;
 };
@@ -69,8 +71,11 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     writeTasks((prev) => [createTask(trimmed), ...prev]);
   }, []);
 
-  const addTasks = useCallback((texts: string[]) => {
-    const newTasks = texts.map((t) => t.trim()).filter(Boolean).map(createTask);
+  const addTasks = useCallback((parsedTasks: ParsedTask[]) => {
+    const newTasks = parsedTasks
+      .map((t) => ({ text: t.text.trim(), scheduledForToday: t.scheduledForToday ?? false }))
+      .filter((t) => t.text)
+      .map((t) => createTask(t.text, t.scheduledForToday));
     if (newTasks.length === 0) return;
     writeTasks((prev) => [...newTasks, ...prev]);
   }, []);
