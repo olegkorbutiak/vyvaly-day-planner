@@ -89,3 +89,53 @@ export function TrashIcon(props: SVGProps<SVGSVGElement>) {
     </Svg>
   );
 }
+
+export function HourglassIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Svg {...props}>
+      <path d="M6 2h12" />
+      <path d="M6 22h12" />
+      <path d="M6 2c0 6 12 6 12 10s-12 4-12 10" />
+      <path d="M18 2c0 6-12 6-12 10s12 4 12 10" />
+    </Svg>
+  );
+}
+
+export function BellIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Svg {...props}>
+      <path d="M6 8a6 6 0 0 1 12 0c0 4 2 5 2 6H4c0-1 2-2 2-6" />
+      <path d="M9 20a3 3 0 0 0 6 0" />
+    </Svg>
+  );
+}
+
+export function DownloadIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Svg {...props}>
+      <path d="M12 3v13" />
+      <path d="m7 11 5 5 5-5" />
+      <path d="M4 20h16" />
+    </Svg>
+  );
+}
+
+export function ListIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Svg {...props}>
+      <path d="M8 6h13M8 12h13M8 18h13" />
+      <path d="M3 6h.01M3 12h.01M3 18h.01" />
+    </Svg>
+  );
+}
+
+export function GridIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Svg {...props}>
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+      <rect x="14" y="14" width="7" height="7" rx="1" />
+    </Svg>
+  );
+}

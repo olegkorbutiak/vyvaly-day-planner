@@ -1,34 +1,90 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon } from "@/components/icons";
-import { EmptyState } from "@/components/empty-state";
+import {
+  CalendarIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  DownloadIcon,
+  GridIcon,
+  ListIcon,
+} from "@/components/icons";
+import { CalendarDayView } from "@/components/calendar-day-view";
+import { CalendarWeekView } from "@/components/calendar-week-view";
 import { useTasks } from "@/lib/tasks-context";
 import { useTodayISO } from "@/lib/use-today";
-import { addDaysISO, diffDaysISO, formatDateLabel } from "@/lib/date-utils";
+import {
+  addDaysISO,
+  diffDaysISO,
+  formatDateLabel,
+  formatWeekRangeLabel,
+  getWeekStartISO,
+} from "@/lib/date-utils";
+import { downloadICS } from "@/lib/ics-export";
 
 export default function CalendarPage() {
   const { tasks, toggleDone } = useTasks();
   const todayISO = useTodayISO();
+  const [viewMode, setViewMode] = useState<"day" | "week">("day");
   const [dayOffset, setDayOffset] = useState(0);
+  const [weekOffset, setWeekOffset] = useState(0);
+
   const selectedDate = addDaysISO(todayISO, dayOffset);
+  const weekStart = getWeekStartISO(addDaysISO(todayISO, weekOffset * 7));
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDaysISO(weekStart, i));
+  const isToday = dayOffset === 0;
+
   const dayTasks = tasks
     .filter((t) => t.dueDate === selectedDate)
     .sort((a, b) => (a.dueTime ?? "99:99").localeCompare(b.dueTime ?? "99:99"));
-  const isToday = dayOffset === 0;
+
+  const navLabel = viewMode === "day" ? formatDateLabel(selectedDate, todayISO) : formatWeekRangeLabel(weekStart);
+  const pickerValue = viewMode === "day" ? selectedDate : weekStart;
+
+  const handlePrev = () => (viewMode === "day" ? setDayOffset((d) => d - 1) : setWeekOffset((w) => w - 1));
+  const handleNext = () => (viewMode === "day" ? setDayOffset((d) => d + 1) : setWeekOffset((w) => w + 1));
 
   const handleDateInput = (value: string) => {
     if (!value) return;
-    setDayOffset(diffDaysISO(value, todayISO));
+    if (viewMode === "day") {
+      setDayOffset(diffDaysISO(value, todayISO));
+    } else {
+      setWeekOffset(Math.round(diffDaysISO(getWeekStartISO(value), getWeekStartISO(todayISO)) / 7));
+    }
   };
 
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 px-4 pt-4 pb-2">
+        <div className="flex rounded-md bg-brand-dark p-1">
+          <button
+            type="button"
+            onClick={() => setViewMode("day")}
+            aria-pressed={viewMode === "day"}
+            aria-label="Вигляд дня"
+            className={`flex h-9 w-9 items-center justify-center rounded-md transition-all duration-200 active:scale-90 ${
+              viewMode === "day" ? "bg-brand-green text-white" : "text-white/50"
+            }`}
+          >
+            <ListIcon className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("week")}
+            aria-pressed={viewMode === "week"}
+            aria-label="Вигляд тижня"
+            className={`flex h-9 w-9 items-center justify-center rounded-md transition-all duration-200 active:scale-90 ${
+              viewMode === "week" ? "bg-brand-green text-white" : "text-white/50"
+            }`}
+          >
+            <GridIcon className="h-4 w-4" />
+          </button>
+        </div>
+
         <button
           type="button"
-          onClick={() => setDayOffset((d) => d - 1)}
-          aria-label="Попередній день"
+          onClick={handlePrev}
+          aria-label="Попередній період"
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-brand-text transition-all duration-200 hover:bg-brand-dark/[0.06] active:scale-90"
         >
           <ChevronLeftIcon className="h-6 w-6" />
@@ -36,16 +92,16 @@ export default function CalendarPage() {
 
         <div className="relative flex-1 overflow-hidden rounded-xl bg-brand-surface shadow-card">
           <p
-            key={selectedDate}
-            className={`pointer-events-none animate-fade-up py-3 text-center font-condensed text-lg font-bold uppercase tracking-wide ${
-              isToday ? "text-brand-green" : "text-brand-text"
+            key={navLabel}
+            className={`pointer-events-none animate-fade-up py-3 text-center font-condensed text-sm font-bold uppercase tracking-wide ${
+              viewMode === "day" && isToday ? "text-brand-green" : "text-brand-text"
             }`}
           >
-            {formatDateLabel(selectedDate, todayISO)}
+            {navLabel}
           </p>
           <input
             type="date"
-            value={selectedDate}
+            value={pickerValue}
             onChange={(e) => handleDateInput(e.target.value)}
             aria-label="Обрати дату"
             className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
@@ -55,62 +111,35 @@ export default function CalendarPage() {
 
         <button
           type="button"
-          onClick={() => setDayOffset((d) => d + 1)}
-          aria-label="Наступний день"
+          onClick={handleNext}
+          aria-label="Наступний період"
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-brand-text transition-all duration-200 hover:bg-brand-dark/[0.06] active:scale-90"
         >
           <ChevronRightIcon className="h-6 w-6" />
         </button>
+
+        <button
+          type="button"
+          onClick={() => downloadICS(tasks)}
+          aria-label="Експортувати в .ics"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-brand-text transition-all duration-200 hover:bg-brand-dark/[0.06] active:scale-90"
+        >
+          <DownloadIcon className="h-5 w-5" />
+        </button>
       </div>
 
-      {dayTasks.length === 0 ? (
-        <EmptyState
-          key={selectedDate}
-          icon={CalendarIcon}
-          title="Тут поки порожньо"
-          description="Задайте дату задачі в Inbox, щоб побачити її тут."
-        />
-      ) : (
-        <div key={selectedDate} className="min-h-0 flex-1 overflow-y-auto p-5 pt-2">
-          <ul className="flex flex-col gap-3">
-            {dayTasks.map((task, index) => (
-              <li
-                key={task.id}
-                style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
-                className="flex animate-fade-up items-center gap-3 rounded-md bg-brand-surface p-4 shadow-card transition-all duration-200 hover:shadow-card-hover active:scale-[0.99]"
-              >
-                <button
-                  type="button"
-                  onClick={() => toggleDone(task.id)}
-                  aria-pressed={task.done}
-                  aria-label="Позначити виконаним"
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md border-2 transition-all duration-200 active:scale-90 ${
-                    task.done
-                      ? "border-brand-green bg-brand-green text-white"
-                      : "border-neutral-300"
-                  }`}
-                >
-                  {task.done && <CheckIcon className="h-4 w-4 animate-pop" />}
-                </button>
-
-                <p
-                  className={`flex-1 text-base transition-colors duration-300 ${
-                    task.done ? "text-neutral-400 line-through" : "text-brand-text"
-                  }`}
-                >
-                  {task.text}
-                </p>
-
-                {task.dueTime && (
-                  <span className="shrink-0 font-condensed text-xs font-bold uppercase tracking-wide text-brand-muted">
-                    {task.dueTime}
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <div key={viewMode + navLabel} className="min-h-0 flex-1 overflow-y-auto">
+        {viewMode === "day" ? (
+          <CalendarDayView dayTasks={dayTasks} onToggle={toggleDone} />
+        ) : (
+          <CalendarWeekView
+            weekDays={weekDays}
+            tasks={tasks}
+            todayISO={todayISO}
+            onToggle={toggleDone}
+          />
+        )}
+      </div>
     </div>
   );
 }

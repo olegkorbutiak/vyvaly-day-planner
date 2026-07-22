@@ -7,4 +7,6 @@ export type Task = {
   dueDate: string | null;
   /** Time of day (HH:MM), or null if only a date (or nothing) is set. */
   dueTime: string | null;
+  /** Estimated duration in minutes, or null if not set. */
+  durationMinutes: number | null;
 };

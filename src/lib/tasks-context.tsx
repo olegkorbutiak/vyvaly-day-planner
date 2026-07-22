@@ -48,6 +48,7 @@ function createTask(text: string, dueDate: string | null = null): Task {
     done: false,
     dueDate,
     dueTime: null,
+    durationMinutes: null,
   };
 }
 
@@ -58,8 +59,10 @@ type TasksContextValue = {
   addTask: (text: string) => void;
   addTasks: (parsedTasks: ParsedTask[]) => void;
   toggleDone: (id: string) => void;
+  updateText: (id: string, text: string) => void;
   setDueDate: (id: string, dueDate: string | null) => void;
   setDueTime: (id: string, dueTime: string | null) => void;
+  setDuration: (id: string, durationMinutes: number | null) => void;
   removeTask: (id: string) => void;
 };
 
@@ -89,9 +92,22 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
+  const updateText = useCallback((id: string, text: string) => {
+    writeTasks((prev) => prev.map((t) => (t.id === id ? { ...t, text } : t)));
+  }, []);
+
   const setDueDate = useCallback((id: string, dueDate: string | null) => {
     writeTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, dueDate, dueTime: dueDate ? t.dueTime : null } : t)),
+      prev.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              dueDate,
+              dueTime: dueDate ? t.dueTime : null,
+              durationMinutes: dueDate ? t.durationMinutes : null,
+            }
+          : t,
+      ),
     );
   }, []);
 
@@ -101,13 +117,29 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
+  const setDuration = useCallback((id: string, durationMinutes: number | null) => {
+    writeTasks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, durationMinutes } : t)),
+    );
+  }, []);
+
   const removeTask = useCallback((id: string) => {
     writeTasks((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
   return (
     <TasksContext.Provider
-      value={{ tasks, addTask, addTasks, toggleDone, setDueDate, setDueTime, removeTask }}
+      value={{
+        tasks,
+        addTask,
+        addTasks,
+        toggleDone,
+        updateText,
+        setDueDate,
+        setDueTime,
+        setDuration,
+        removeTask,
+      }}
     >
       {children}
     </TasksContext.Provider>

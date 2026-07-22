@@ -3,6 +3,8 @@ const MONTHS = [
   "липня", "серпня", "вересня", "жовтня", "листопада", "грудня",
 ];
 
+const WEEKDAYS_SHORT = ["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "НД"];
+
 export function toISODate(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -42,12 +44,59 @@ export function formatDateLabel(iso: string, todayIso: string): string {
   return `${d} ${MONTHS[m - 1]}`;
 }
 
+export function formatDuration(minutes: number | null): string | null {
+  if (!minutes) return null;
+  if (minutes < 60) return `${minutes} хв`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest === 0 ? `${hours} год` : `${hours} год ${rest} хв`;
+}
+
 export function formatScheduleLabel(
   dueDate: string | null,
   dueTime: string | null,
+  durationMinutes: number | null,
   todayIso: string,
 ): string | null {
   if (!dueDate) return null;
-  const dateLabel = formatDateLabel(dueDate, todayIso);
-  return dueTime ? `${dateLabel}, ${dueTime}` : dateLabel;
+  const parts = [formatDateLabel(dueDate, todayIso)];
+  if (dueTime) parts[0] += `, ${dueTime}`;
+  const durationLabel = formatDuration(durationMinutes);
+  if (durationLabel) parts.push(durationLabel);
+  return parts.join(" · ");
+}
+
+/** Monday-based ISO week start for the given date. */
+export function getWeekStartISO(iso: string): string {
+  const { y, m, d } = parseISO(iso);
+  const date = new Date(y, m - 1, d);
+  const weekday = date.getDay();
+  const mondayOffset = weekday === 0 ? -6 : 1 - weekday;
+  return addDaysISO(iso, mondayOffset);
+}
+
+export function getWeekDays(weekStartIso: string): string[] {
+  return Array.from({ length: 7 }, (_, i) => addDaysISO(weekStartIso, i));
+}
+
+export function formatWeekdayShort(iso: string): string {
+  const { y, m, d } = parseISO(iso);
+  const weekday = new Date(y, m - 1, d).getDay();
+  return WEEKDAYS_SHORT[weekday === 0 ? 6 : weekday - 1];
+}
+
+export function formatWeekRangeLabel(weekStartIso: string): string {
+  const weekEndIso = addDaysISO(weekStartIso, 6);
+  const start = parseISO(weekStartIso);
+  const end = parseISO(weekEndIso);
+  if (start.m === end.m) {
+    return `${start.d}–${end.d} ${MONTHS[start.m - 1]}`;
+  }
+  return `${start.d} ${MONTHS[start.m - 1]} – ${end.d} ${MONTHS[end.m - 1]}`;
+}
+
+/** Minutes since midnight for a HH:MM string. */
+export function timeToMinutes(time: string): number {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
 }
