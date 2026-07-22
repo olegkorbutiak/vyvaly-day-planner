@@ -1,12 +1,12 @@
 "use client";
 
-import { CheckIcon } from "@/components/icons";
+import { CalendarIcon, CheckIcon } from "@/components/icons";
 import { EmptyState } from "@/components/empty-state";
 import { useTasks } from "@/lib/tasks-context";
 
 export default function InboxPage() {
-  const { tasks, toggleDone, moveToToday } = useTasks();
-  const inboxTasks = tasks.filter((t) => !t.scheduledForToday);
+  const { tasks, toggleDone, setDueDate } = useTasks();
+  const inboxTasks = tasks.filter((t) => t.dueDate === null);
 
   if (inboxTasks.length === 0) {
     return (
@@ -49,13 +49,15 @@ export default function InboxPage() {
               {task.text}
             </p>
 
-            <button
-              type="button"
-              onClick={() => moveToToday(task.id)}
-              className="shrink-0 rounded-md bg-brand-dark px-4 py-2 font-condensed text-sm font-bold uppercase tracking-wide text-white"
-            >
-              Сьогодні
-            </button>
+            <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-brand-dark text-white">
+              <CalendarIcon className="h-5 w-5" />
+              <input
+                type="date"
+                aria-label="Призначити дату"
+                onChange={(e) => setDueDate(task.id, e.target.value || null)}
+                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+              />
+            </div>
           </li>
         ))}
       </ul>

@@ -46,14 +46,16 @@ export default function CapturePage() {
         body: JSON.stringify({ text }),
       });
       if (!response.ok) throw new Error();
-      const data: { tasks: { title: string; today: boolean }[] } = await response.json();
-      addTasks(data.tasks.map((t) => ({ text: t.title, scheduledForToday: t.today })));
+      const data: { tasks: { title: string; dueDate: string | null }[] } = await response.json();
+      addTasks(data.tasks.map((t) => ({ text: t.title, dueDate: t.dueDate })));
       setText("");
       setBaseText("");
-      const todayCount = data.tasks.filter((t) => t.today).length;
+      const scheduledCount = data.tasks.filter((t) => t.dueDate !== null).length;
       const message =
         data.tasks.length === 1 ? "Додано 1 задачу" : `Додано ${data.tasks.length} задачі`;
-      flashSaved(todayCount > 0 ? `${message} (${todayCount} — на сьогодні)` : `${message} в Inbox`);
+      flashSaved(
+        scheduledCount > 0 ? `${message} (${scheduledCount} — у календарі)` : `${message} в Inbox`,
+      );
     } catch {
       setParseError("Не вдалося розібрати текст. Спробуйте «Зберегти» без AI.");
     } finally {

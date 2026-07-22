@@ -40,24 +40,24 @@ function writeTasks(updater: (prev: Task[]) => Task[]) {
   listeners.forEach((listener) => listener());
 }
 
-function createTask(text: string, scheduledForToday = false): Task {
+function createTask(text: string, dueDate: string | null = null): Task {
   return {
     id: crypto.randomUUID(),
     text,
     createdAt: Date.now(),
     done: false,
-    scheduledForToday,
+    dueDate,
   };
 }
 
-export type ParsedTask = { text: string; scheduledForToday?: boolean };
+export type ParsedTask = { text: string; dueDate?: string | null };
 
 type TasksContextValue = {
   tasks: Task[];
   addTask: (text: string) => void;
   addTasks: (parsedTasks: ParsedTask[]) => void;
   toggleDone: (id: string) => void;
-  moveToToday: (id: string) => void;
+  setDueDate: (id: string, dueDate: string | null) => void;
 };
 
 const TasksContext = createContext<TasksContextValue | null>(null);
@@ -73,9 +73,9 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
 
   const addTasks = useCallback((parsedTasks: ParsedTask[]) => {
     const newTasks = parsedTasks
-      .map((t) => ({ text: t.text.trim(), scheduledForToday: t.scheduledForToday ?? false }))
+      .map((t) => ({ text: t.text.trim(), dueDate: t.dueDate ?? null }))
       .filter((t) => t.text)
-      .map((t) => createTask(t.text, t.scheduledForToday));
+      .map((t) => createTask(t.text, t.dueDate));
     if (newTasks.length === 0) return;
     writeTasks((prev) => [...newTasks, ...prev]);
   }, []);
@@ -86,14 +86,14 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
-  const moveToToday = useCallback((id: string) => {
+  const setDueDate = useCallback((id: string, dueDate: string | null) => {
     writeTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, scheduledForToday: true } : t)),
+      prev.map((t) => (t.id === id ? { ...t, dueDate } : t)),
     );
   }, []);
 
   return (
-    <TasksContext.Provider value={{ tasks, addTask, addTasks, toggleDone, moveToToday }}>
+    <TasksContext.Provider value={{ tasks, addTask, addTasks, toggleDone, setDueDate }}>
       {children}
     </TasksContext.Provider>
   );

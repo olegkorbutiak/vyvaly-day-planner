@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { InboxIcon, MicIcon, TodayIcon } from "./icons";
+import { CalendarIcon, InboxIcon, MicIcon } from "./icons";
 
 const TABS = [
   { href: "/", label: "Занотувати", Icon: MicIcon },
   { href: "/inbox", label: "Inbox", Icon: InboxIcon },
-  { href: "/today", label: "Сьогодні", Icon: TodayIcon },
+  { href: "/calendar", label: "Календар", Icon: CalendarIcon },
 ];
 
 export function BottomNav() {

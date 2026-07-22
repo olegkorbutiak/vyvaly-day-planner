@@ -35,7 +35,7 @@ export function InboxIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-export function TodayIcon(props: SVGProps<SVGSVGElement>) {
+export function CalendarIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <Svg {...props}>
       <rect x="3" y="5" width="18" height="16" rx="2" />
@@ -50,6 +50,22 @@ export function CheckIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <Svg {...props}>
       <path d="m5 12 5 5 9-9" />
+    </Svg>
+  );
+}
+
+export function ChevronLeftIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Svg {...props}>
+      <path d="m15 18-6-6 6-6" />
+    </Svg>
+  );
+}
+
+export function ChevronRightIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Svg {...props}>
+      <path d="m9 18 6-6-6-6" />
     </Svg>
   );
 }

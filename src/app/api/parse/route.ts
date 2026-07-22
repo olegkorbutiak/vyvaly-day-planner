@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
+import { addDaysISO, todayISO } from "@/lib/date-utils";
 
 const DEFAULT_MODEL = "nvidia/nemotron-nano-9b-v2:free";
 const MAX_ATTEMPTS = 2;
 
 const SYSTEM_PROMPT =
   "Ти розбираєш нотатку користувача українською мовою на окремі конкретні задачі. " +
-  'Поверни лише JSON-об\'єкт форми {"tasks": [{"title": "...", "today": true}]}. ' +
+  'Поверни лише JSON-об\'єкт форми {"tasks": [{"title": "...", "date": "today"}]}. ' +
   '"title" — коротке формулювання задачі у наказовому стилі, без слів "сьогодні"/"завтра"/"післязавтра" всередині, без нумерації. ' +
-  '"today" — true, лише якщо в тексті прямо сказано, що це на сьогодні; якщо згадано "завтра", "післязавтра" ' +
-  "чи інший майбутній момент, або дату взагалі не вказано — false. " +
+  '"date" — одне з: "today" (якщо прямо сказано "сьогодні"), "tomorrow" (якщо "завтра"), ' +
+  '"day_after_tomorrow" (якщо "післязавтра"), або "none" (якщо дату не вказано). ' +
   "КРИТИЧНО ВАЖЛИВО: не вигадуй жодних дій, яких немає в тексті користувача. Кожна задача має відповідати " +
   "конкретній дії, згаданій у вхідному тексті — нічого не додавай і не змінюй суть. " +
   "Усі назви задач пиши українською мовою — тією ж, що й вхідний текст, без перекладу.";
@@ -17,13 +18,18 @@ const EXAMPLE_INPUT =
   "Сьогодні треба попрацювати над звітом, завтра купити хліб, а післязавтра відвезти документи в банк";
 const EXAMPLE_OUTPUT = JSON.stringify({
   tasks: [
-    { title: "Попрацювати над звітом", today: true },
-    { title: "Купити хліб", today: false },
-    { title: "Відвезти документи в банк", today: false },
+    { title: "Попрацювати над звітом", date: "today" },
+    { title: "Купити хліб", date: "tomorrow" },
+    { title: "Відвезти документи в банк", date: "day_after_tomorrow" },
   ],
 });
 
-type ParsedTask = { title: string; today: boolean };
+type RelativeDate = "today" | "tomorrow" | "day_after_tomorrow" | "none";
+type ParsedTask = { title: string; date: RelativeDate };
+
+function isRelativeDate(value: unknown): value is RelativeDate {
+  return value === "today" || value === "tomorrow" || value === "day_after_tomorrow" || value === "none";
+}
 
 async function requestTasks(apiKey: string, model: string, text: string): Promise<ParsedTask[]> {
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -60,9 +66,20 @@ async function requestTasks(apiKey: string, model: string, text: string): Promis
   if (!Array.isArray(tasks)) return [];
 
   return tasks
-    .filter((t): t is { title: unknown; today: unknown } => typeof t === "object" && t !== null)
+    .filter((t): t is { title: unknown; date: unknown } => typeof t === "object" && t !== null)
     .filter((t) => typeof t.title === "string" && t.title.trim())
-    .map((t) => ({ title: (t.title as string).trim(), today: t.today === true }));
+    .map((t) => ({
+      title: (t.title as string).trim(),
+      date: isRelativeDate(t.date) ? t.date : "none",
+    }));
+}
+
+function toDueDate(date: RelativeDate): string | null {
+  const today = todayISO();
+  if (date === "today") return today;
+  if (date === "tomorrow") return addDaysISO(today, 1);
+  if (date === "day_after_tomorrow") return addDaysISO(today, 2);
+  return null;
 }
 
 export async function POST(request: Request) {
@@ -91,5 +108,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "AI не зміг розпізнати задачі" }, { status: 502 });
   }
 
-  return NextResponse.json({ tasks });
+  return NextResponse.json({
+    tasks: tasks.map((t) => ({ title: t.title, dueDate: toDueDate(t.date) })),
+  });
 }

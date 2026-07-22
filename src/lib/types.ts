@@ -3,5 +3,6 @@ export type Task = {
   text: string;
   createdAt: number;
   done: boolean;
-  scheduledForToday: boolean;
+  /** ISO date (YYYY-MM-DD) the task is scheduled for, or null if unscheduled. */
+  dueDate: string | null;
 };
