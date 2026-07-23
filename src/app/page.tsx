@@ -118,7 +118,7 @@ export default function CapturePage() {
             type="button"
             onClick={handleParse}
             disabled={!text.trim() || isParsing}
-            className={`relative h-16 flex-1 overflow-hidden rounded-md font-condensed text-lg font-bold uppercase tracking-wide text-white transition-all duration-200 active:scale-[0.98] active:bg-brand-green-strong disabled:opacity-30 ${
+            className={`relative flex h-16 flex-1 items-center justify-center overflow-hidden rounded-md text-center font-condensed text-lg font-bold uppercase tracking-wide text-white transition-all duration-200 active:scale-[0.98] active:bg-brand-green-strong disabled:opacity-30 ${
               text.trim() && !isParsing ? "shadow-glow" : ""
             } ${
               isParsing
@@ -134,7 +134,7 @@ export default function CapturePage() {
           type="button"
           onClick={handleSave}
           disabled={!text.trim() || isParsing}
-          className="font-condensed text-sm font-bold uppercase tracking-wide text-brand-muted underline underline-offset-2 transition active:scale-95 disabled:opacity-30"
+          className="text-center font-condensed text-sm font-bold uppercase tracking-wide text-brand-muted underline underline-offset-2 transition active:scale-95 disabled:opacity-30"
         >
           Зберегти без AI
         </button>
