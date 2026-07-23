@@ -4,6 +4,7 @@ import { BottomNav } from "@/components/bottom-nav";
 import { LionWatermark } from "@/components/lion-watermark";
 import { MountainSkyline } from "@/components/mountain-skyline";
 import { ReminderScheduler } from "@/components/reminder-scheduler";
+import { AuthProvider } from "@/lib/auth-context";
 import { TasksProvider } from "@/lib/tasks-context";
 import "./globals.css";
 
@@ -39,15 +40,17 @@ export default function RootLayout({
   return (
     <html lang="uk" className={`${roboto.variable} ${robotoCondensed.variable} antialiased`}>
       <body className="text-brand-text">
-        <TasksProvider>
-          <ReminderScheduler />
-          <div className="relative flex h-dvh flex-col overflow-hidden overscroll-none">
-            <MountainSkyline />
-            <LionWatermark />
-            <main className="relative min-h-0 flex-1 overflow-y-auto">{children}</main>
-            <BottomNav />
-          </div>
-        </TasksProvider>
+        <AuthProvider>
+          <TasksProvider>
+            <ReminderScheduler />
+            <div className="relative flex h-dvh flex-col overflow-hidden overscroll-none">
+              <MountainSkyline />
+              <LionWatermark />
+              <main className="relative min-h-0 flex-1 overflow-y-auto">{children}</main>
+              <BottomNav />
+            </div>
+          </TasksProvider>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CheckIcon, MicIcon } from "@/components/icons";
 import { Logo } from "@/components/logo";
+import { AccountButton } from "@/components/account-button";
 import { InspirationQuote } from "@/components/inspiration-quote";
 import { useTasks } from "@/lib/tasks-context";
 import { useSpeechRecognition } from "@/lib/use-speech-recognition";
@@ -89,7 +90,10 @@ export default function CapturePage() {
   return (
     <div className="flex h-full flex-col">
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pt-6">
-        <Logo className="animate-fade-up pb-4" />
+        <div className="flex animate-fade-up items-start justify-between pb-4">
+          <Logo />
+          <AccountButton />
+        </div>
         <p className="animate-fade-up font-condensed text-xs font-bold uppercase tracking-wide text-brand-green">
           Занотувати
         </p>

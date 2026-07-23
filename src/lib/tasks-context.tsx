@@ -1,20 +1,17 @@
 "use client";
 
-import { createContext, useCallback, useContext, useSyncExternalStore } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { useAuth } from "./auth-context";
+import { supabase } from "./supabase";
 import type { Task } from "./types";
 
 const STORAGE_KEY = "ai-day-planner.tasks";
-
-type Listener = () => void;
-
 const EMPTY_TASKS: Task[] = [];
-let cachedTasks: Task[] | null = null;
-const listeners = new Set<Listener>();
 
 type StoredTask = Omit<Task, "archived" | "archivedAt"> &
   Partial<Pick<Task, "archived" | "archivedAt">>;
 
-function readTasks(): Task[] {
+function readLocalTasks(): Task[] {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return EMPTY_TASKS;
@@ -29,24 +26,50 @@ function readTasks(): Task[] {
   }
 }
 
-function getSnapshot(): Task[] {
-  if (cachedTasks === null) cachedTasks = readTasks();
-  return cachedTasks;
+function writeLocalTasks(tasks: Task[]) {
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
 }
 
-function getServerSnapshot(): Task[] {
-  return EMPTY_TASKS;
+type TaskRow = {
+  id: string;
+  user_id: string;
+  text: string;
+  created_at: string;
+  done: boolean;
+  due_date: string | null;
+  due_time: string | null;
+  duration_minutes: number | null;
+  archived: boolean;
+  archived_at: string | null;
+};
+
+function rowToTask(row: TaskRow): Task {
+  return {
+    id: row.id,
+    text: row.text,
+    createdAt: new Date(row.created_at).getTime(),
+    done: row.done,
+    dueDate: row.due_date,
+    dueTime: row.due_time,
+    durationMinutes: row.duration_minutes,
+    archived: row.archived,
+    archivedAt: row.archived_at ? new Date(row.archived_at).getTime() : null,
+  };
 }
 
-function subscribe(listener: Listener) {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
-
-function writeTasks(updater: (prev: Task[]) => Task[]) {
-  cachedTasks = updater(getSnapshot());
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(cachedTasks));
-  listeners.forEach((listener) => listener());
+function taskToRow(task: Task, userId: string): TaskRow {
+  return {
+    id: task.id,
+    user_id: userId,
+    text: task.text,
+    created_at: new Date(task.createdAt).toISOString(),
+    done: task.done,
+    due_date: task.dueDate,
+    due_time: task.dueTime,
+    duration_minutes: task.durationMinutes,
+    archived: task.archived,
+    archived_at: task.archivedAt ? new Date(task.archivedAt).toISOString() : null,
+  };
 }
 
 function createTask(
@@ -87,95 +110,234 @@ type TasksContextValue = {
 const TasksContext = createContext<TasksContextValue | null>(null);
 
 export function TasksProvider({ children }: { children: React.ReactNode }) {
-  const tasks = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const { user, isLoading: authLoading } = useAuth();
+  const [tasks, setTasks] = useState<Task[]>(EMPTY_TASKS);
+  const userId = user?.id ?? null;
 
-  const addTask = useCallback((text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed) return;
-    writeTasks((prev) => [createTask(trimmed), ...prev]);
-  }, []);
+  // Loads the right source of truth whenever sign-in state changes: the
+  // user's cloud tasks once signed in (migrating any local tasks up on
+  // first sign-in), or the local guest store otherwise.
+  useEffect(() => {
+    if (authLoading) return;
 
-  const addTasks = useCallback((parsedTasks: ParsedTask[]) => {
-    const newTasks = parsedTasks
-      .map((t) => ({
-        text: t.text.trim(),
-        dueDate: t.dueDate ?? null,
-        dueTime: t.dueTime ?? null,
-      }))
-      .filter((t) => t.text)
-      .map((t) => createTask(t.text, t.dueDate, t.dueTime));
-    if (newTasks.length === 0) return;
-    writeTasks((prev) => [...newTasks, ...prev]);
-  }, []);
+    if (!userId || !supabase) {
+      Promise.resolve().then(() => setTasks(readLocalTasks()));
+      return;
+    }
 
-  const toggleDone = useCallback((id: string) => {
-    writeTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
-    );
-  }, []);
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
 
-  const updateText = useCallback((id: string, text: string) => {
-    writeTasks((prev) => prev.map((t) => (t.id === id ? { ...t, text } : t)));
-  }, []);
+      if (cancelled) return;
 
-  const setDueDate = useCallback((id: string, dueDate: string | null) => {
-    writeTasks((prev) =>
-      prev.map((t) =>
-        t.id === id
-          ? {
-              ...t,
-              dueDate,
-              dueTime: dueDate ? t.dueTime : null,
-              durationMinutes: dueDate ? t.durationMinutes : null,
-            }
-          : t,
-      ),
-    );
-  }, []);
+      if (error) {
+        console.error("Failed to load cloud tasks", error);
+        setTasks(readLocalTasks());
+        return;
+      }
 
-  const setDueTime = useCallback((id: string, dueTime: string | null) => {
-    writeTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, dueTime } : t)),
-    );
-  }, []);
+      if (data.length === 0) {
+        const localTasks = readLocalTasks();
+        if (localTasks.length > 0) {
+          const { error: migrateError } = await supabase
+            .from("tasks")
+            .insert(localTasks.map((t) => taskToRow(t, userId)));
+          if (migrateError) console.error("Failed to migrate local tasks", migrateError);
+          if (!cancelled) setTasks(localTasks);
+          return;
+        }
+      }
 
-  const setDuration = useCallback((id: string, durationMinutes: number | null) => {
-    writeTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, durationMinutes } : t)),
-    );
-  }, []);
+      if (!cancelled) setTasks(data.map(rowToTask));
+    })();
 
-  const setDueDateForMany = useCallback((ids: string[], dueDate: string | null) => {
-    const idSet = new Set(ids);
-    writeTasks((prev) =>
-      prev.map((t) =>
-        idSet.has(t.id)
-          ? {
-              ...t,
-              dueDate,
-              dueTime: dueDate ? t.dueTime : null,
-              durationMinutes: dueDate ? t.durationMinutes : null,
-            }
-          : t,
-      ),
-    );
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, authLoading]);
 
-  const removeTask = useCallback((id: string) => {
-    writeTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, archived: true, archivedAt: Date.now() } : t)),
-    );
-  }, []);
+  const applyChange = useCallback(
+    (next: Task[]) => {
+      setTasks(next);
+      if (!userId) writeLocalTasks(next);
+    },
+    [userId],
+  );
 
-  const restoreTask = useCallback((id: string) => {
-    writeTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, archived: false, archivedAt: null } : t)),
-    );
-  }, []);
+  const cloudInsert = useCallback(
+    (newTasks: Task[]) => {
+      if (!userId || !supabase) return;
+      supabase
+        .from("tasks")
+        .insert(newTasks.map((t) => taskToRow(t, userId)))
+        .then(({ error }) => error && console.error("Failed to save task", error));
+    },
+    [userId],
+  );
 
-  const deleteForever = useCallback((id: string) => {
-    writeTasks((prev) => prev.filter((t) => t.id !== id));
-  }, []);
+  const cloudUpdate = useCallback(
+    (ids: string[], patch: Partial<TaskRow>) => {
+      if (!userId || !supabase) return;
+      supabase
+        .from("tasks")
+        .update(patch)
+        .in("id", ids)
+        .then(({ error }) => error && console.error("Failed to update task", error));
+    },
+    [userId],
+  );
+
+  const cloudDelete = useCallback(
+    (id: string) => {
+      if (!userId || !supabase) return;
+      supabase
+        .from("tasks")
+        .delete()
+        .eq("id", id)
+        .then(({ error }) => error && console.error("Failed to delete task", error));
+    },
+    [userId],
+  );
+
+  const addTask = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      const created = createTask(trimmed);
+      applyChange([created, ...tasks]);
+      cloudInsert([created]);
+    },
+    [tasks, applyChange, cloudInsert],
+  );
+
+  const addTasks = useCallback(
+    (parsedTasks: ParsedTask[]) => {
+      const created = parsedTasks
+        .map((t) => ({
+          text: t.text.trim(),
+          dueDate: t.dueDate ?? null,
+          dueTime: t.dueTime ?? null,
+        }))
+        .filter((t) => t.text)
+        .map((t) => createTask(t.text, t.dueDate, t.dueTime));
+      if (created.length === 0) return;
+      applyChange([...created, ...tasks]);
+      cloudInsert(created);
+    },
+    [tasks, applyChange, cloudInsert],
+  );
+
+  const toggleDone = useCallback(
+    (id: string) => {
+      const target = tasks.find((t) => t.id === id);
+      if (!target) return;
+      const done = !target.done;
+      applyChange(tasks.map((t) => (t.id === id ? { ...t, done } : t)));
+      cloudUpdate([id], { done });
+    },
+    [tasks, applyChange, cloudUpdate],
+  );
+
+  const updateText = useCallback(
+    (id: string, text: string) => {
+      applyChange(tasks.map((t) => (t.id === id ? { ...t, text } : t)));
+      cloudUpdate([id], { text });
+    },
+    [tasks, applyChange, cloudUpdate],
+  );
+
+  const setDueDate = useCallback(
+    (id: string, dueDate: string | null) => {
+      applyChange(
+        tasks.map((t) =>
+          t.id === id
+            ? {
+                ...t,
+                dueDate,
+                dueTime: dueDate ? t.dueTime : null,
+                durationMinutes: dueDate ? t.durationMinutes : null,
+              }
+            : t,
+        ),
+      );
+      cloudUpdate([id], {
+        due_date: dueDate,
+        ...(dueDate ? {} : { due_time: null, duration_minutes: null }),
+      });
+    },
+    [tasks, applyChange, cloudUpdate],
+  );
+
+  const setDueTime = useCallback(
+    (id: string, dueTime: string | null) => {
+      applyChange(tasks.map((t) => (t.id === id ? { ...t, dueTime } : t)));
+      cloudUpdate([id], { due_time: dueTime });
+    },
+    [tasks, applyChange, cloudUpdate],
+  );
+
+  const setDuration = useCallback(
+    (id: string, durationMinutes: number | null) => {
+      applyChange(tasks.map((t) => (t.id === id ? { ...t, durationMinutes } : t)));
+      cloudUpdate([id], { duration_minutes: durationMinutes });
+    },
+    [tasks, applyChange, cloudUpdate],
+  );
+
+  const setDueDateForMany = useCallback(
+    (ids: string[], dueDate: string | null) => {
+      const idSet = new Set(ids);
+      applyChange(
+        tasks.map((t) =>
+          idSet.has(t.id)
+            ? {
+                ...t,
+                dueDate,
+                dueTime: dueDate ? t.dueTime : null,
+                durationMinutes: dueDate ? t.durationMinutes : null,
+              }
+            : t,
+        ),
+      );
+      cloudUpdate(ids, {
+        due_date: dueDate,
+        ...(dueDate ? {} : { due_time: null, duration_minutes: null }),
+      });
+    },
+    [tasks, applyChange, cloudUpdate],
+  );
+
+  const removeTask = useCallback(
+    (id: string) => {
+      const archivedAt = Date.now();
+      applyChange(tasks.map((t) => (t.id === id ? { ...t, archived: true, archivedAt } : t)));
+      cloudUpdate([id], { archived: true, archived_at: new Date(archivedAt).toISOString() });
+    },
+    [tasks, applyChange, cloudUpdate],
+  );
+
+  const restoreTask = useCallback(
+    (id: string) => {
+      applyChange(
+        tasks.map((t) => (t.id === id ? { ...t, archived: false, archivedAt: null } : t)),
+      );
+      cloudUpdate([id], { archived: false, archived_at: null });
+    },
+    [tasks, applyChange, cloudUpdate],
+  );
+
+  const deleteForever = useCallback(
+    (id: string) => {
+      applyChange(tasks.filter((t) => t.id !== id));
+      cloudDelete(id);
+    },
+    [tasks, applyChange, cloudDelete],
+  );
 
   return (
     <TasksContext.Provider
