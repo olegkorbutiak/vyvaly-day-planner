@@ -103,25 +103,27 @@ export function CalendarDayView({
           {timed.map((task) => {
             const minutes = timeToMinutes(task.dueTime!);
             const top = Math.max(0, (minutes - START_HOUR * 60) * PX_PER_MIN);
-            const height = Math.max(28, (task.durationMinutes ?? 30) * PX_PER_MIN);
+            const minHeight = Math.max(44, (task.durationMinutes ?? 30) * PX_PER_MIN);
             const durationLabel = formatDuration(task.durationMinutes);
             return (
               <button
                 key={task.id}
                 type="button"
                 onClick={() => onToggle(task.id)}
-                style={{ top, height }}
-                className={`absolute left-1 right-1 overflow-hidden rounded-md border-l-4 px-2 py-1 text-left transition-all duration-200 active:scale-[0.98] ${
+                style={{ top, minHeight, zIndex: 1 }}
+                className={`absolute left-1 right-1 rounded-md border-l-4 px-2 py-1.5 text-left shadow-sm transition-all duration-200 active:scale-[0.98] ${
                   task.done
                     ? "border-neutral-300 bg-neutral-100 text-neutral-400"
                     : "border-brand-green bg-brand-green/10 text-brand-text"
                 }`}
               >
-                <p className={`text-xs font-bold ${task.done ? "line-through" : ""}`}>
+                <p className={`text-xs font-bold whitespace-nowrap ${task.done ? "line-through" : ""}`}>
                   {task.dueTime}
                   {durationLabel ? ` · ${durationLabel}` : ""}
                 </p>
-                <p className={`text-sm ${task.done ? "line-through" : ""}`}>{task.text}</p>
+                <p className={`text-sm break-words ${task.done ? "line-through" : ""}`}>
+                  {task.text}
+                </p>
               </button>
             );
           })}
