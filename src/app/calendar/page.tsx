@@ -86,88 +86,92 @@ export default function CalendarPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 px-4 pt-4 pb-2">
-        <div className="flex rounded-md bg-brand-dark p-1">
+      <div className="flex flex-col gap-2 px-4 pt-4 pb-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex rounded-md bg-brand-dark p-1">
+            <button
+              type="button"
+              onClick={() => setViewMode("day")}
+              aria-pressed={viewMode === "day"}
+              aria-label="Вигляд дня"
+              className={`flex h-9 w-9 items-center justify-center rounded-md transition-all duration-200 active:scale-90 ${
+                viewMode === "day" ? "bg-brand-green text-white" : "text-white/50"
+              }`}
+            >
+              <ListIcon className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("week")}
+              aria-pressed={viewMode === "week"}
+              aria-label="Вигляд тижня"
+              className={`flex h-9 w-9 items-center justify-center rounded-md transition-all duration-200 active:scale-90 ${
+                viewMode === "week" ? "bg-brand-green text-white" : "text-white/50"
+              }`}
+            >
+              <GridIcon className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("month")}
+              aria-pressed={viewMode === "month"}
+              aria-label="Вигляд місяця"
+              className={`flex h-9 w-9 items-center justify-center rounded-md transition-all duration-200 active:scale-90 ${
+                viewMode === "month" ? "bg-brand-green text-white" : "text-white/50"
+              }`}
+            >
+              <CalendarIcon className="h-4 w-4" />
+            </button>
+          </div>
+
           <button
             type="button"
-            onClick={() => setViewMode("day")}
-            aria-pressed={viewMode === "day"}
-            aria-label="Вигляд дня"
-            className={`flex h-9 w-9 items-center justify-center rounded-md transition-all duration-200 active:scale-90 ${
-              viewMode === "day" ? "bg-brand-green text-white" : "text-white/50"
-            }`}
+            onClick={() => downloadICS(tasks)}
+            aria-label="Експортувати в .ics"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-brand-text transition-all duration-200 hover:bg-brand-dark/[0.06] active:scale-90"
           >
-            <ListIcon className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode("week")}
-            aria-pressed={viewMode === "week"}
-            aria-label="Вигляд тижня"
-            className={`flex h-9 w-9 items-center justify-center rounded-md transition-all duration-200 active:scale-90 ${
-              viewMode === "week" ? "bg-brand-green text-white" : "text-white/50"
-            }`}
-          >
-            <GridIcon className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode("month")}
-            aria-pressed={viewMode === "month"}
-            aria-label="Вигляд місяця"
-            className={`flex h-9 w-9 items-center justify-center rounded-md transition-all duration-200 active:scale-90 ${
-              viewMode === "month" ? "bg-brand-green text-white" : "text-white/50"
-            }`}
-          >
-            <CalendarIcon className="h-4 w-4" />
+            <DownloadIcon className="h-5 w-5" />
           </button>
         </div>
 
-        <button
-          type="button"
-          onClick={handlePrev}
-          aria-label="Попередній період"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-brand-text transition-all duration-200 hover:bg-brand-dark/[0.06] active:scale-90"
-        >
-          <ChevronLeftIcon className="h-6 w-6" />
-        </button>
-
-        <div className="relative flex-1 overflow-hidden rounded-xl bg-brand-surface shadow-card">
-          <p
-            key={navLabel}
-            className={`pointer-events-none animate-fade-up py-3 text-center font-condensed text-sm font-bold uppercase tracking-wide ${
-              viewMode === "day" && isToday ? "text-brand-green" : "text-brand-text"
-            }`}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handlePrev}
+            aria-label="Попередній період"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-brand-text transition-all duration-200 hover:bg-brand-dark/[0.06] active:scale-90"
           >
-            {navLabel}
-          </p>
-          <input
-            type="date"
-            value={pickerValue}
-            onChange={(e) => handleDateInput(e.target.value)}
-            aria-label="Обрати дату"
-            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-          />
-          <CalendarIcon className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-brand-muted" />
+            <ChevronLeftIcon className="h-6 w-6" />
+          </button>
+
+          <div className="relative flex-1 overflow-hidden rounded-xl bg-brand-surface shadow-card">
+            <p
+              key={navLabel}
+              className={`pointer-events-none animate-fade-up py-3 text-center font-condensed text-sm font-bold uppercase tracking-wide ${
+                viewMode === "day" && isToday ? "text-brand-green" : "text-brand-text"
+              }`}
+            >
+              {navLabel}
+            </p>
+            <input
+              type="date"
+              value={pickerValue}
+              onChange={(e) => handleDateInput(e.target.value)}
+              aria-label="Обрати дату"
+              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+            />
+            <CalendarIcon className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-brand-muted" />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleNext}
+            aria-label="Наступний період"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-brand-text transition-all duration-200 hover:bg-brand-dark/[0.06] active:scale-90"
+          >
+            <ChevronRightIcon className="h-6 w-6" />
+          </button>
         </div>
-
-        <button
-          type="button"
-          onClick={handleNext}
-          aria-label="Наступний період"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-brand-text transition-all duration-200 hover:bg-brand-dark/[0.06] active:scale-90"
-        >
-          <ChevronRightIcon className="h-6 w-6" />
-        </button>
-
-        <button
-          type="button"
-          onClick={() => downloadICS(tasks)}
-          aria-label="Експортувати в .ics"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-brand-text transition-all duration-200 hover:bg-brand-dark/[0.06] active:scale-90"
-        >
-          <DownloadIcon className="h-5 w-5" />
-        </button>
       </div>
 
       {viewMode === "month" ? (
