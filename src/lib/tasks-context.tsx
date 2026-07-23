@@ -63,6 +63,7 @@ type TasksContextValue = {
   setDueDate: (id: string, dueDate: string | null) => void;
   setDueTime: (id: string, dueTime: string | null) => void;
   setDuration: (id: string, durationMinutes: number | null) => void;
+  setDueDateForMany: (ids: string[], dueDate: string | null) => void;
   removeTask: (id: string) => void;
 };
 
@@ -123,6 +124,22 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
+  const setDueDateForMany = useCallback((ids: string[], dueDate: string | null) => {
+    const idSet = new Set(ids);
+    writeTasks((prev) =>
+      prev.map((t) =>
+        idSet.has(t.id)
+          ? {
+              ...t,
+              dueDate,
+              dueTime: dueDate ? t.dueTime : null,
+              durationMinutes: dueDate ? t.durationMinutes : null,
+            }
+          : t,
+      ),
+    );
+  }, []);
+
   const removeTask = useCallback((id: string) => {
     writeTasks((prev) => prev.filter((t) => t.id !== id));
   }, []);
@@ -138,6 +155,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         setDueDate,
         setDueTime,
         setDuration,
+        setDueDateForMany,
         removeTask,
       }}
     >
