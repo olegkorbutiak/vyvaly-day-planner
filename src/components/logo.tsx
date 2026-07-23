@@ -1,3 +1,5 @@
+"use client";
+
 function LogoMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 40 40" className={className} aria-hidden="true">
@@ -37,13 +39,18 @@ function LogoMark({ className }: { className?: string }) {
 
 export function Logo({ className }: { className?: string }) {
   return (
-    <div className={`flex items-center gap-2.5 ${className ?? ""}`}>
+    <button
+      type="button"
+      onClick={() => window.location.reload()}
+      aria-label="Оновити сторінку"
+      className={`flex items-center gap-2.5 transition-transform duration-150 active:scale-95 ${className ?? ""}`}
+    >
       <LogoMark className="h-9 w-9 shrink-0" />
       <p className="font-condensed text-sm font-bold uppercase leading-none tracking-wide text-brand-text">
         My Perfect
         <br />
         Day Planner
       </p>
-    </div>
+    </button>
   );
 }
