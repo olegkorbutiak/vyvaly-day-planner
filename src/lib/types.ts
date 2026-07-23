@@ -9,4 +9,8 @@ export type Task = {
   dueTime: string | null;
   /** Estimated duration in minutes, or null if not set. */
   durationMinutes: number | null;
+  /** True once soft-deleted into the Archive. */
+  archived: boolean;
+  /** Timestamp the task was archived at, or null if not archived. */
+  archivedAt: number | null;
 };

@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarIcon, InboxIcon, MicIcon } from "./icons";
+import { ArchiveIcon, CalendarIcon, InboxIcon, MicIcon } from "./icons";
 
 const TABS = [
   { href: "/", label: "Занотувати", Icon: MicIcon },
   { href: "/inbox", label: "Вхідні", Icon: InboxIcon },
   { href: "/calendar", label: "Календар", Icon: CalendarIcon },
+  { href: "/archive", label: "Архів", Icon: ArchiveIcon },
 ];
 
 export function BottomNav() {
@@ -20,7 +21,7 @@ export function BottomNav() {
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <span
-        className="absolute top-2 bottom-2 left-0 w-1/3 rounded-xl bg-white/[0.06] transition-transform duration-300 ease-out"
+        className="absolute top-2 bottom-2 left-0 w-1/4 rounded-xl bg-white/[0.06] transition-transform duration-300 ease-out"
         style={{ transform: `translateX(${activeIndex * 100}%)` }}
       />
 

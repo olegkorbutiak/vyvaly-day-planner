@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   CalendarIcon,
   ChevronLeftIcon,
@@ -33,7 +33,8 @@ import { getHolidayForDate } from "@/lib/holidays";
 type ViewMode = "day" | "week" | "month";
 
 export default function CalendarPage() {
-  const { tasks, toggleDone } = useTasks();
+  const { tasks: allTasks, toggleDone } = useTasks();
+  const tasks = useMemo(() => allTasks.filter((t) => !t.archived), [allTasks]);
   const todayISO = useTodayISO();
   const weatherLocation = useWeatherLocation();
   const { forecast } = useForecast(weatherLocation);

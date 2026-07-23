@@ -22,7 +22,7 @@ export function ReminderScheduler() {
     const now = Date.now();
 
     for (const task of tasks) {
-      if (task.done || !task.dueDate || !task.dueTime) continue;
+      if (task.done || task.archived || !task.dueDate || !task.dueTime) continue;
 
       const [y, m, d] = task.dueDate.split("-").map(Number);
       const minutes = timeToMinutes(task.dueTime);

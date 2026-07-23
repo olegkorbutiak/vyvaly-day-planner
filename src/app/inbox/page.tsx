@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import {
   CalendarIcon,
   CheckIcon,
@@ -32,7 +33,18 @@ const DURATION_OPTIONS = [
   { value: "240", label: "4 год" },
 ];
 
-type SortMode = "created" | "alpha" | "undated";
+type SortMode = "created" | "alpha" | "undated" | "chrono";
+
+function compareChrono(a: Task, b: Task): number {
+  if (a.dueDate === null && b.dueDate === null) return 0;
+  if (a.dueDate === null) return 1;
+  if (b.dueDate === null) return -1;
+  if (a.dueDate !== b.dueDate) return a.dueDate < b.dueDate ? -1 : 1;
+  if (a.dueTime === null && b.dueTime === null) return 0;
+  if (a.dueTime === null) return -1;
+  if (b.dueTime === null) return 1;
+  return a.dueTime.localeCompare(b.dueTime);
+}
 
 function sortTasks(tasks: Task[], mode: SortMode): Task[] {
   if (mode === "alpha") {
@@ -44,6 +56,9 @@ function sortTasks(tasks: Task[], mode: SortMode): Task[] {
       const bRank = b.dueDate === null ? 0 : 1;
       return aRank - bRank;
     });
+  }
+  if (mode === "chrono") {
+    return [...tasks].sort(compareChrono);
   }
   return tasks;
 }
@@ -94,12 +109,17 @@ export default function InboxPage() {
   };
 
   const visibleTasks = useMemo(() => {
-    const withoutPending = pendingDelete ? tasks.filter((t) => t.id !== pendingDelete.id) : tasks;
+    const active = tasks.filter((t) => {
+      if (t.archived) return false;
+      if (pendingDelete && t.id === pendingDelete.id) return false;
+      const isOverdue = t.dueDate !== null && t.dueDate < todayISO && !t.done;
+      return !isOverdue;
+    });
     const filtered = search.trim()
-      ? withoutPending.filter((t) => t.text.toLowerCase().includes(search.trim().toLowerCase()))
-      : withoutPending;
+      ? active.filter((t) => t.text.toLowerCase().includes(search.trim().toLowerCase()))
+      : active;
     return sortTasks(filtered, sortMode);
-  }, [tasks, search, sortMode, pendingDelete]);
+  }, [tasks, search, sortMode, pendingDelete, todayISO]);
 
   const exitSelectMode = () => {
     setSelectMode(false);
@@ -174,6 +194,7 @@ export default function InboxPage() {
           <option value="created">Спочатку нові</option>
           <option value="alpha">За назвою</option>
           <option value="undated">Спочатку без дати</option>
+          <option value="chrono">За послідовністю подій</option>
         </select>
       </div>
 
@@ -185,6 +206,14 @@ export default function InboxPage() {
         {visibleTasks.length === 0 && search.trim() ? (
           <p className="animate-fade-up pt-10 text-center text-sm text-brand-muted">
             Нічого не знайдено за запитом «{search}»
+          </p>
+        ) : visibleTasks.length === 0 ? (
+          <p className="animate-fade-up pt-10 text-center text-sm text-brand-muted">
+            Усі задачі прострочені або в архіві. Перевірте{" "}
+            <Link href="/archive" className="font-bold text-brand-green underline underline-offset-2">
+              Архів
+            </Link>
+            .
           </p>
         ) : (
           <ul className="flex flex-col gap-3">

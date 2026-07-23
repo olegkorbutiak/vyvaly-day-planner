@@ -11,10 +11,19 @@ const EMPTY_TASKS: Task[] = [];
 let cachedTasks: Task[] | null = null;
 const listeners = new Set<Listener>();
 
+type StoredTask = Omit<Task, "archived" | "archivedAt"> &
+  Partial<Pick<Task, "archived" | "archivedAt">>;
+
 function readTasks(): Task[] {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as Task[]) : EMPTY_TASKS;
+    if (!raw) return EMPTY_TASKS;
+    const parsed = JSON.parse(raw) as StoredTask[];
+    return parsed.map((t) => ({
+      archived: false,
+      archivedAt: null,
+      ...t,
+    }));
   } catch {
     return EMPTY_TASKS;
   }
@@ -53,6 +62,8 @@ function createTask(
     dueDate,
     dueTime: dueDate ? dueTime : null,
     durationMinutes: null,
+    archived: false,
+    archivedAt: null,
   };
 }
 
@@ -69,6 +80,8 @@ type TasksContextValue = {
   setDuration: (id: string, durationMinutes: number | null) => void;
   setDueDateForMany: (ids: string[], dueDate: string | null) => void;
   removeTask: (id: string) => void;
+  restoreTask: (id: string) => void;
+  deleteForever: (id: string) => void;
 };
 
 const TasksContext = createContext<TasksContextValue | null>(null);
@@ -149,6 +162,18 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const removeTask = useCallback((id: string) => {
+    writeTasks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, archived: true, archivedAt: Date.now() } : t)),
+    );
+  }, []);
+
+  const restoreTask = useCallback((id: string) => {
+    writeTasks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, archived: false, archivedAt: null } : t)),
+    );
+  }, []);
+
+  const deleteForever = useCallback((id: string) => {
     writeTasks((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
@@ -165,6 +190,8 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         setDuration,
         setDueDateForMany,
         removeTask,
+        restoreTask,
+        deleteForever,
       }}
     >
       {children}
