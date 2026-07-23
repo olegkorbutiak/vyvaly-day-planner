@@ -2,9 +2,11 @@
 
 import type { Task } from "@/lib/types";
 import type { DailyForecast } from "@/lib/weather";
+import type { Holiday } from "@/lib/holidays";
 import { CalendarIcon, CheckIcon } from "@/components/icons";
 import { EmptyState } from "@/components/empty-state";
 import { WeatherDayCard } from "@/components/weather-day-card";
+import { HolidayBanner } from "@/components/holiday-banner";
 import { formatDuration, timeToMinutes } from "@/lib/date-utils";
 
 const START_HOUR = 6;
@@ -41,10 +43,12 @@ export function CalendarDayView({
   dayTasks,
   onToggle,
   weatherDay,
+  holiday,
 }: {
   dayTasks: Task[];
   onToggle: (id: string) => void;
   weatherDay?: DailyForecast | null;
+  holiday?: Holiday | null;
 }) {
   const untimed = dayTasks.filter((t) => !t.dueTime);
   const timed = dayTasks.filter((t) => t.dueTime);
@@ -52,9 +56,10 @@ export function CalendarDayView({
   if (dayTasks.length === 0) {
     return (
       <div className="flex h-full flex-col">
-        {weatherDay && (
-          <div className="px-5 pt-2">
-            <WeatherDayCard day={weatherDay} />
+        {(holiday || weatherDay) && (
+          <div className="flex flex-col gap-2 px-5 pt-2">
+            {holiday && <HolidayBanner holiday={holiday} />}
+            {weatherDay && <WeatherDayCard day={weatherDay} />}
           </div>
         )}
         <EmptyState
@@ -68,6 +73,7 @@ export function CalendarDayView({
 
   return (
     <div className="flex flex-col gap-4 p-5 pt-2">
+      {holiday && <HolidayBanner holiday={holiday} />}
       {weatherDay && <WeatherDayCard day={weatherDay} />}
 
       {untimed.length > 0 && (

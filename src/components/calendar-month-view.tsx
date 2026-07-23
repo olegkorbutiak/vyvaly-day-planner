@@ -2,6 +2,7 @@
 
 import type { Task } from "@/lib/types";
 import { dayOfMonth, isSameMonth } from "@/lib/date-utils";
+import { getHolidayForDate } from "@/lib/holidays";
 
 const WEEKDAY_HEADERS = ["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "НД"];
 const MAX_VISIBLE = 3;
@@ -45,6 +46,7 @@ export function CalendarMonthView({
           const dayTasks = tasksByDay.get(day) ?? [];
           const inMonth = isSameMonth(day, monthAnchor);
           const isToday = day === todayISO;
+          const holiday = getHolidayForDate(day);
           const visible = dayTasks.slice(0, MAX_VISIBLE);
           const overflow = dayTasks.length - visible.length;
 
@@ -53,17 +55,27 @@ export function CalendarMonthView({
               key={day}
               type="button"
               onClick={() => onSelectDay(day)}
-              className={`flex flex-col items-stretch overflow-hidden rounded-md p-1 text-left transition-all duration-200 active:scale-[0.97] ${
-                inMonth ? "bg-brand-surface shadow-card" : "bg-brand-surface/40"
+              title={holiday?.name}
+              className={`relative flex flex-col items-stretch overflow-hidden rounded-md p-1 text-left transition-all duration-200 active:scale-[0.97] ${
+                holiday && inMonth
+                  ? "bg-[linear-gradient(160deg,rgba(0,87,183,0.08)_0%,rgba(255,215,0,0.12)_100%)] shadow-card"
+                  : inMonth
+                    ? "bg-brand-surface shadow-card"
+                    : "bg-brand-surface/40"
               }`}
             >
+              {holiday && (
+                <span className="absolute top-0.5 right-0.5 text-[10px] leading-none">🇺🇦</span>
+              )}
               <span
                 className={`mb-0.5 flex h-5 w-5 items-center justify-center rounded-full font-condensed text-xs font-bold ${
                   isToday
                     ? "bg-brand-green text-white"
-                    : inMonth
-                      ? "text-brand-text"
-                      : "text-neutral-300"
+                    : holiday && inMonth
+                      ? "bg-[linear-gradient(135deg,#0057b7_0%,#ffd700_100%)] text-white"
+                      : inMonth
+                        ? "text-brand-text"
+                        : "text-neutral-300"
                 }`}
               >
                 {dayOfMonth(day)}

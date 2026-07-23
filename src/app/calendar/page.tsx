@@ -28,6 +28,7 @@ import {
   getWeekStartISO,
 } from "@/lib/date-utils";
 import { downloadICS } from "@/lib/ics-export";
+import { getHolidayForDate } from "@/lib/holidays";
 
 type ViewMode = "day" | "week" | "month";
 
@@ -52,6 +53,7 @@ export default function CalendarPage() {
     .filter((t) => t.dueDate === selectedDate)
     .sort((a, b) => (a.dueTime ?? "99:99").localeCompare(b.dueTime ?? "99:99"));
   const dayForecast = forecast?.find((f) => f.date === selectedDate) ?? null;
+  const dayHoliday = getHolidayForDate(selectedDate);
 
   const navLabel =
     viewMode === "day"
@@ -195,7 +197,12 @@ export default function CalendarPage() {
       ) : (
         <div key={viewMode + navLabel} className="min-h-0 flex-1 overflow-y-auto">
           {viewMode === "day" ? (
-            <CalendarDayView dayTasks={dayTasks} onToggle={toggleDone} weatherDay={dayForecast} />
+            <CalendarDayView
+              dayTasks={dayTasks}
+              onToggle={toggleDone}
+              weatherDay={dayForecast}
+              holiday={dayHoliday}
+            />
           ) : (
             <CalendarWeekView
               weekDays={weekDays}

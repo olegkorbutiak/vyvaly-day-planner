@@ -3,6 +3,7 @@
 import type { Task } from "@/lib/types";
 import { CheckIcon } from "@/components/icons";
 import { formatDateLabel, formatWeekdayShort } from "@/lib/date-utils";
+import { getHolidayForDate } from "@/lib/holidays";
 
 export function CalendarWeekView({
   weekDays,
@@ -36,15 +37,23 @@ export function CalendarWeekView({
 
       {weekDays.map((day, i) => {
         const isToday = day === todayISO;
+        const holiday = getHolidayForDate(day);
         return (
           <div key={day} className="flex flex-col gap-2">
-            <p
-              className={`font-condensed text-xs font-bold uppercase tracking-wide ${
-                isToday ? "text-brand-green" : "text-brand-muted"
-              }`}
-            >
-              {formatWeekdayShort(day)} · {formatDateLabel(day, todayISO)}
-            </p>
+            <div className="flex items-center gap-2">
+              <p
+                className={`font-condensed text-xs font-bold uppercase tracking-wide ${
+                  isToday ? "text-brand-green" : "text-brand-muted"
+                }`}
+              >
+                {formatWeekdayShort(day)} · {formatDateLabel(day, todayISO)}
+              </p>
+              {holiday && (
+                <span className="flex items-center gap-1 rounded-full bg-[linear-gradient(120deg,#0057b7_0%,#0057b7_50%,#ffd700_50%,#ffd700_100%)] px-2 py-0.5 font-condensed text-[10px] font-bold uppercase tracking-wide text-white [text-shadow:0_1px_1px_rgba(0,0,0,0.35)]">
+                  🇺🇦 {holiday.name}
+                </span>
+              )}
+            </div>
 
             {tasksByDay[i].length === 0 ? (
               <p className="text-sm text-neutral-400">Немає задач</p>
