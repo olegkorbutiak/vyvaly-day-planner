@@ -2,7 +2,7 @@ export function LionWatermark() {
   return (
     <svg
       viewBox="0 0 240 160"
-      className="pointer-events-none absolute -right-12 bottom-16 h-64 w-64 text-brand-green opacity-[0.07] sm:h-80 sm:w-80"
+      className="pointer-events-none absolute -right-10 bottom-24 h-56 w-56 text-brand-green opacity-[0.08] sm:bottom-28 sm:h-72 sm:w-72"
       fill="currentColor"
       aria-hidden="true"
     >
