@@ -33,6 +33,12 @@ const DURATION_OPTIONS = [
   { value: "240", label: "4 год" },
 ];
 
+function autoResizeTextarea(el: HTMLTextAreaElement | null) {
+  if (!el) return;
+  el.style.height = "auto";
+  el.style.height = `${Math.min(el.scrollHeight, 48)}px`;
+}
+
 type SortMode = "created" | "alpha" | "undated" | "chrono";
 
 function compareChrono(a: Task, b: Task): number {
@@ -243,7 +249,7 @@ export default function InboxPage() {
                         isSelected ? "ring-2 ring-brand-green" : ""
                       }`}
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-start gap-3">
                         <button
                           type="button"
                           onClick={() =>
@@ -251,7 +257,7 @@ export default function InboxPage() {
                           }
                           aria-pressed={isChecked}
                           aria-label={selectMode ? "Вибрати задачу" : "Позначити виконаним"}
-                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md border-2 transition-all duration-200 active:scale-90 ${
+                          className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md border-2 transition-all duration-200 active:scale-90 ${
                             isChecked
                               ? "border-brand-green bg-brand-green text-white"
                               : "border-neutral-300"
@@ -260,13 +266,17 @@ export default function InboxPage() {
                           {isChecked && <CheckIcon className="h-4 w-4 animate-pop" />}
                         </button>
 
-                        <input
-                          type="text"
+                        <textarea
+                          ref={autoResizeTextarea}
                           value={task.text}
-                          onChange={(e) => updateText(task.id, e.target.value)}
+                          onChange={(e) => {
+                            updateText(task.id, e.target.value);
+                            autoResizeTextarea(e.target);
+                          }}
+                          rows={1}
                           aria-label="Текст задачі"
                           disabled={selectMode}
-                          className={`flex-1 bg-transparent text-base outline-none transition-colors duration-300 disabled:opacity-60 ${
+                          className={`mt-1 max-h-12 flex-1 resize-none overflow-y-auto bg-transparent text-base leading-6 break-words outline-none transition-colors duration-300 disabled:opacity-60 ${
                             task.done ? "text-neutral-400 line-through" : "text-brand-text"
                           }`}
                         />
@@ -280,6 +290,7 @@ export default function InboxPage() {
                           <TrashIcon className="h-5 w-5" />
                         </button>
                       </div>
+
 
                       {scheduleLabel && (
                         <p className="pl-11 font-condensed text-xs font-bold uppercase tracking-wide text-brand-green">
