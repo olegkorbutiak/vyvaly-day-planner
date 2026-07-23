@@ -40,19 +40,23 @@ function writeTasks(updater: (prev: Task[]) => Task[]) {
   listeners.forEach((listener) => listener());
 }
 
-function createTask(text: string, dueDate: string | null = null): Task {
+function createTask(
+  text: string,
+  dueDate: string | null = null,
+  dueTime: string | null = null,
+): Task {
   return {
     id: crypto.randomUUID(),
     text,
     createdAt: Date.now(),
     done: false,
     dueDate,
-    dueTime: null,
+    dueTime: dueDate ? dueTime : null,
     durationMinutes: null,
   };
 }
 
-export type ParsedTask = { text: string; dueDate?: string | null };
+export type ParsedTask = { text: string; dueDate?: string | null; dueTime?: string | null };
 
 type TasksContextValue = {
   tasks: Task[];
@@ -80,9 +84,13 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
 
   const addTasks = useCallback((parsedTasks: ParsedTask[]) => {
     const newTasks = parsedTasks
-      .map((t) => ({ text: t.text.trim(), dueDate: t.dueDate ?? null }))
+      .map((t) => ({
+        text: t.text.trim(),
+        dueDate: t.dueDate ?? null,
+        dueTime: t.dueTime ?? null,
+      }))
       .filter((t) => t.text)
-      .map((t) => createTask(t.text, t.dueDate));
+      .map((t) => createTask(t.text, t.dueDate, t.dueTime));
     if (newTasks.length === 0) return;
     writeTasks((prev) => [...newTasks, ...prev]);
   }, []);

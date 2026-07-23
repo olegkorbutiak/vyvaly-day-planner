@@ -1,34 +1,66 @@
 import { NextResponse } from "next/server";
-import { addDaysISO, todayISO } from "@/lib/date-utils";
+import { addDaysISO, getNextWeekdayISO, todayISO } from "@/lib/date-utils";
 
 const DEFAULT_MODEL = "nvidia/nemotron-nano-9b-v2:free";
 const MAX_ATTEMPTS = 2;
 
+const WEEKDAY_KEYS = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+] as const;
+
 const SYSTEM_PROMPT =
-  "Ти розбираєш нотатку користувача українською мовою на окремі конкретні задачі. " +
-  'Поверни лише JSON-об\'єкт форми {"tasks": [{"title": "...", "date": "today"}]}. ' +
-  '"title" — коротке формулювання задачі у наказовому стилі, без слів "сьогодні"/"завтра"/"післязавтра" всередині, без нумерації. ' +
-  '"date" — одне з: "today" (якщо прямо сказано "сьогодні"), "tomorrow" (якщо "завтра"), ' +
-  '"day_after_tomorrow" (якщо "післязавтра"), або "none" (якщо дату не вказано). ' +
+  "Ти розбираєш нотатку користувача українською мовою на окремі конкретні задачі, визначаючи для кожної дату й час. " +
+  'Поверни лише JSON-об\'єкт форми {"tasks": [{"title": "...", "date": "today", "time": "15:00"}]}. ' +
+  '"title" — коротке формулювання задачі у наказовому стилі, без слів на позначення дати/часу всередині, без нумерації. ' +
+  '"date" — одне з: "today" (сьогодні), "tomorrow" (завтра), "day_after_tomorrow" (післязавтра), ' +
+  '"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday" (якщо згадано конкретний день тижня — ' +
+  'напр. "у п\'ятницю", "в неділю"), або "none" (якщо дату взагалі не вказано). ' +
+  '"time" — час у форматі "ГГ:ХХ" (24-годинний), якщо в тексті прямо вказано час (напр. "о 15:00", "о 9 ранку" → "09:00"), ' +
+  'або приблизний час за словом дня: "вранці"/"зранку" → "09:00", "вдень" → "13:00", "ввечері" → "19:00", "вночі" → "22:00". ' +
+  'Якщо часу немає в тексті — "time": null. Якщо "date" дорівнює "none", то "time" теж завжди null. ' +
   "КРИТИЧНО ВАЖЛИВО: не вигадуй жодних дій, яких немає в тексті користувача. Кожна задача має відповідати " +
   "конкретній дії, згаданій у вхідному тексті — нічого не додавай і не змінюй суть. " +
-  "Усі назви задач пиши українською мовою — тією ж, що й вхідний текст, без перекладу.";
+  "Усі назви задач пиши українською мовою — тією ж, що й вхідний текст, без перекладу. " +
+  "УВАГА: якщо в тексті згадано кілька РІЗНИХ днів тижня для різних задач — уважно прив'язуй кожну дату саме до " +
+  "тієї задачі, біля якої вона стоїть у реченні. Не переноси день тижня однієї задачі на іншу.";
 
 const EXAMPLE_INPUT =
-  "Сьогодні треба попрацювати над звітом, завтра купити хліб, а післязавтра відвезти документи в банк";
+  "Сьогодні о 15:00 зустріч з лікарем, у понеділок ввечері подзвонити мамі, а в суботу зранку з'їздити на дачу";
 const EXAMPLE_OUTPUT = JSON.stringify({
   tasks: [
-    { title: "Попрацювати над звітом", date: "today" },
-    { title: "Купити хліб", date: "tomorrow" },
-    { title: "Відвезти документи в банк", date: "day_after_tomorrow" },
+    { title: "Зустріч з лікарем", date: "today", time: "15:00" },
+    { title: "Подзвонити мамі", date: "monday", time: "19:00" },
+    { title: "З'їздити на дачу", date: "saturday", time: "09:00" },
   ],
 });
 
-type RelativeDate = "today" | "tomorrow" | "day_after_tomorrow" | "none";
-type ParsedTask = { title: string; date: RelativeDate };
+type RelativeDate =
+  | "today"
+  | "tomorrow"
+  | "day_after_tomorrow"
+  | (typeof WEEKDAY_KEYS)[number]
+  | "none";
+
+type ParsedTask = { title: string; date: RelativeDate; time: string | null };
 
 function isRelativeDate(value: unknown): value is RelativeDate {
-  return value === "today" || value === "tomorrow" || value === "day_after_tomorrow" || value === "none";
+  return (
+    value === "today" ||
+    value === "tomorrow" ||
+    value === "day_after_tomorrow" ||
+    value === "none" ||
+    (typeof value === "string" && (WEEKDAY_KEYS as readonly string[]).includes(value))
+  );
+}
+
+function isValidTime(value: unknown): value is string {
+  return typeof value === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 }
 
 async function requestTasks(apiKey: string, model: string, text: string): Promise<ParsedTask[]> {
@@ -66,12 +98,18 @@ async function requestTasks(apiKey: string, model: string, text: string): Promis
   if (!Array.isArray(tasks)) return [];
 
   return tasks
-    .filter((t): t is { title: unknown; date: unknown } => typeof t === "object" && t !== null)
+    .filter((t): t is { title: unknown; date: unknown; time: unknown } =>
+      typeof t === "object" && t !== null,
+    )
     .filter((t) => typeof t.title === "string" && t.title.trim())
-    .map((t) => ({
-      title: (t.title as string).trim(),
-      date: isRelativeDate(t.date) ? t.date : "none",
-    }));
+    .map((t) => {
+      const date = isRelativeDate(t.date) ? t.date : "none";
+      return {
+        title: (t.title as string).trim(),
+        date,
+        time: date !== "none" && isValidTime(t.time) ? t.time : null,
+      };
+    });
 }
 
 function toDueDate(date: RelativeDate): string | null {
@@ -79,6 +117,9 @@ function toDueDate(date: RelativeDate): string | null {
   if (date === "today") return today;
   if (date === "tomorrow") return addDaysISO(today, 1);
   if (date === "day_after_tomorrow") return addDaysISO(today, 2);
+  if ((WEEKDAY_KEYS as readonly string[]).includes(date)) {
+    return getNextWeekdayISO(today, date);
+  }
   return null;
 }
 
@@ -109,6 +150,9 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({
-    tasks: tasks.map((t) => ({ title: t.title, dueDate: toDueDate(t.date) })),
+    tasks: tasks.map((t) => {
+      const dueDate = toDueDate(t.date);
+      return { title: t.title, dueDate, dueTime: dueDate ? t.time : null };
+    }),
   });
 }

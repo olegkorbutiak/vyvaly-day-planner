@@ -135,3 +135,23 @@ export function getMonthGridDays(iso: string): string[] {
 export function dayOfMonth(iso: string): number {
   return parseISO(iso).d;
 }
+
+const WEEKDAY_JS_INDEX: Record<string, number> = {
+  sunday: 0,
+  monday: 1,
+  tuesday: 2,
+  wednesday: 3,
+  thursday: 4,
+  friday: 5,
+  saturday: 6,
+};
+
+/** The nearest ISO date (today included) matching the given English weekday key. */
+export function getNextWeekdayISO(todayIso: string, weekdayKey: string): string | null {
+  const target = WEEKDAY_JS_INDEX[weekdayKey];
+  if (target === undefined) return null;
+  const { y, m, d } = parseISO(todayIso);
+  const todayJsDay = new Date(y, m - 1, d).getDay();
+  const offset = (target - todayJsDay + 7) % 7;
+  return addDaysISO(todayIso, offset);
+}

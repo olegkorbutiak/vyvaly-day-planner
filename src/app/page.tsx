@@ -47,8 +47,12 @@ export default function CapturePage() {
         body: JSON.stringify({ text }),
       });
       if (!response.ok) throw new Error();
-      const data: { tasks: { title: string; dueDate: string | null }[] } = await response.json();
-      addTasks(data.tasks.map((t) => ({ text: t.title, dueDate: t.dueDate })));
+      const data: {
+        tasks: { title: string; dueDate: string | null; dueTime: string | null }[];
+      } = await response.json();
+      addTasks(
+        data.tasks.map((t) => ({ text: t.title, dueDate: t.dueDate, dueTime: t.dueTime })),
+      );
       setText("");
       setBaseText("");
       const scheduledCount = data.tasks.filter((t) => t.dueDate !== null).length;
