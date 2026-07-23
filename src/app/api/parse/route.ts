@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { addDaysISO, getNextWeekdayISO, todayISO } from "@/lib/date-utils";
 import { sanitizeUkrainian } from "@/lib/uk-sanitize";
 
-const DEFAULT_MODEL = "nvidia/nemotron-nano-9b-v2:free";
+const DEFAULT_MODEL = "llama-3.3-70b-versatile";
 const MAX_ATTEMPTS = 2;
 const REQUEST_TIMEOUT_MS = 12000;
 
@@ -17,7 +17,6 @@ const WEEKDAY_KEYS = [
 ] as const;
 
 const SYSTEM_PROMPT =
-  "/no_think\n" +
   "Ти розбираєш нотатку користувача українською мовою на окремі конкретні задачі, визначаючи для кожної дату й час. " +
   'Поверни лише JSON-об\'єкт форми {"tasks": [{"title": "...", "date": "today", "time": "15:00"}]}. ' +
   '"title" — коротке формулювання задачі у наказовому стилі, без слів на позначення дати/часу всередині, без нумерації. ' +
@@ -34,17 +33,11 @@ const SYSTEM_PROMPT =
   "тієї задачі, біля якої вона стоїть у реченні. Не переноси день тижня однієї задачі на іншу. " +
   "Пиши виключно грамотною літературною українською мовою: без жодних російських слів, без кальок з російської " +
   "(напр. \"сьогодні\" не \"сегодня\", \"зробити\" не \"сделать\", \"дякую\" не \"спасибо\") і без латинської транслітерації " +
-  "українських слів.";
-
-const EXAMPLE_INPUT =
-  "Сьогодні о 15:00 зустріч з лікарем, у понеділок ввечері подзвонити мамі, а в суботу зранку з'їздити на дачу";
-const EXAMPLE_OUTPUT = JSON.stringify({
-  tasks: [
-    { title: "Зустріч з лікарем", date: "today", time: "15:00" },
-    { title: "Подзвонити мамі", date: "monday", time: "19:00" },
-    { title: "З'їздити на дачу", date: "saturday", time: "09:00" },
-  ],
-});
+  "українських слів. " +
+  "Слова типу \"додай задачу\", \"запиши\", \"нагадай\" — це не сама задача, а лише вказівка щось занотувати; " +
+  "title має описувати ЩО саме робити, взяте з решти тексту після цих слів. Якщо після прибирання таких " +
+  "службових слів у тексті не залишилось жодної конкретної дії, використай як title рештку введеного тексту " +
+  "буквально — ніколи не вигадуй сторонню задачу, якої немає у вхідному тексті.";
 
 type RelativeDate =
   | "today"
@@ -72,22 +65,20 @@ function isValidTime(value: unknown): value is string {
 type RequestResult = { tasks: ParsedTask[]; rateLimited: boolean };
 
 async function requestTasks(apiKey: string, model: string, text: string): Promise<RequestResult> {
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    cache: "no-store",
     body: JSON.stringify({
       model,
       temperature: 0.2,
-      provider: { sort: "latency" },
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: EXAMPLE_INPUT },
-        { role: "assistant", content: EXAMPLE_OUTPUT },
         { role: "user", content: text },
       ],
     }),
@@ -140,10 +131,10 @@ function toDueDate(date: RelativeDate): string | null {
 }
 
 export async function POST(request: Request) {
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
-      { error: "OPENROUTER_API_KEY не налаштований на сервері" },
+      { error: "GROQ_API_KEY не налаштований на сервері" },
       { status: 500 },
     );
   }
@@ -154,7 +145,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Порожній текст" }, { status: 400 });
   }
 
-  const model = process.env.OPENROUTER_MODEL ?? DEFAULT_MODEL;
+  const model = process.env.GROQ_MODEL ?? DEFAULT_MODEL;
 
   let tasks: ParsedTask[] = [];
   let rateLimited = false;
