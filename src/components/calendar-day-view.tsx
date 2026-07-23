@@ -51,7 +51,7 @@ export function CalendarDayView({
         <EmptyState
           icon={CalendarIcon}
           title="Тут поки порожньо"
-          description="Задайте дату задачі в Inbox, щоб побачити її тут."
+          description="Задайте дату задачі у Вхідних, щоб побачити її тут."
         />
       </div>
     );

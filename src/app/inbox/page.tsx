@@ -37,7 +37,7 @@ export default function InboxPage() {
         <NotificationBanner />
         <EmptyState
           icon={InboxIcon}
-          title="В Inbox поки порожньо"
+          title="У Вхідних поки порожньо"
           description="Все, що ви занотуєте на екрані «Занотувати», з'явиться тут."
         />
       </div>

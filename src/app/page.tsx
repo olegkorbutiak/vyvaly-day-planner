@@ -33,7 +33,7 @@ export default function CapturePage() {
     addTask(text);
     setText("");
     setBaseText("");
-    flashSaved("Додано в Inbox");
+    flashSaved("Додано у Вхідні");
   };
 
   const handleParse = async () => {
@@ -55,7 +55,7 @@ export default function CapturePage() {
       const message =
         data.tasks.length === 1 ? "Додано 1 задачу" : `Додано ${data.tasks.length} задачі`;
       flashSaved(
-        scheduledCount > 0 ? `${message} (${scheduledCount} — у календарі)` : `${message} в Inbox`,
+        scheduledCount > 0 ? `${message} (${scheduledCount} — у календарі)` : `${message} у Вхідні`,
       );
     } catch {
       setParseError("Не вдалося розібрати текст. Спробуйте «Зберегти» без AI.");

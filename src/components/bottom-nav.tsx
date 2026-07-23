@@ -6,7 +6,7 @@ import { CalendarIcon, InboxIcon, MicIcon } from "./icons";
 
 const TABS = [
   { href: "/", label: "Занотувати", Icon: MicIcon },
-  { href: "/inbox", label: "Inbox", Icon: InboxIcon },
+  { href: "/inbox", label: "Вхідні", Icon: InboxIcon },
   { href: "/calendar", label: "Календар", Icon: CalendarIcon },
 ];
 
