@@ -193,3 +193,14 @@ export function RestoreIcon(props: SVGProps<SVGSVGElement>) {
     </Svg>
   );
 }
+
+export function ChartIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Svg {...props}>
+      <path d="M4 20V10" />
+      <path d="M10 20V4" />
+      <path d="M16 20v-7" />
+      <path d="M3 20h18" />
+    </Svg>
+  );
+}

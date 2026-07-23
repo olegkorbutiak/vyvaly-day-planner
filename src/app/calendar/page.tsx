@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import {
   CalendarIcon,
+  ChartIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   DownloadIcon,
@@ -133,14 +135,23 @@ export default function CalendarPage() {
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => downloadICS(tasks)}
-            aria-label="Експортувати в .ics"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-brand-text transition-all duration-200 hover:bg-brand-dark/[0.06] active:scale-90"
-          >
-            <DownloadIcon className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            <Link
+              href="/statistics"
+              aria-label="Статистика"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-brand-text transition-all duration-200 hover:bg-brand-dark/[0.06] active:scale-90"
+            >
+              <ChartIcon className="h-5 w-5" />
+            </Link>
+            <button
+              type="button"
+              onClick={() => downloadICS(tasks)}
+              aria-label="Експортувати в .ics"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-brand-text transition-all duration-200 hover:bg-brand-dark/[0.06] active:scale-90"
+            >
+              <DownloadIcon className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
