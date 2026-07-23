@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   CalendarIcon,
   CheckIcon,
@@ -65,13 +65,41 @@ export default function InboxPage() {
   const [sortMode, setSortMode] = useState<SortMode>("created");
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [pendingDelete, setPendingDelete] = useState<Task | null>(null);
+  const pendingTimeoutRef = useRef<number | null>(null);
+
+  const commitPendingDelete = () => {
+    if (pendingTimeoutRef.current) window.clearTimeout(pendingTimeoutRef.current);
+    pendingTimeoutRef.current = null;
+    setPendingDelete((current) => {
+      if (current) removeTask(current.id);
+      return null;
+    });
+  };
+
+  const handleDelete = (task: Task) => {
+    commitPendingDelete();
+    setPendingDelete(task);
+    pendingTimeoutRef.current = window.setTimeout(() => {
+      removeTask(task.id);
+      setPendingDelete(null);
+      pendingTimeoutRef.current = null;
+    }, 5000);
+  };
+
+  const handleUndo = () => {
+    if (pendingTimeoutRef.current) window.clearTimeout(pendingTimeoutRef.current);
+    pendingTimeoutRef.current = null;
+    setPendingDelete(null);
+  };
 
   const visibleTasks = useMemo(() => {
+    const withoutPending = pendingDelete ? tasks.filter((t) => t.id !== pendingDelete.id) : tasks;
     const filtered = search.trim()
-      ? tasks.filter((t) => t.text.toLowerCase().includes(search.trim().toLowerCase()))
-      : tasks;
+      ? withoutPending.filter((t) => t.text.toLowerCase().includes(search.trim().toLowerCase()))
+      : withoutPending;
     return sortTasks(filtered, sortMode);
-  }, [tasks, search, sortMode]);
+  }, [tasks, search, sortMode, pendingDelete]);
 
   const exitSelectMode = () => {
     setSelectMode(false);
@@ -154,7 +182,7 @@ export default function InboxPage() {
           selectMode && selectedIds.size > 0 ? "pb-24" : "pb-5"
         }`}
       >
-        {visibleTasks.length === 0 ? (
+        {visibleTasks.length === 0 && search.trim() ? (
           <p className="animate-fade-up pt-10 text-center text-sm text-brand-muted">
             Нічого не знайдено за запитом «{search}»
           </p>
@@ -178,7 +206,7 @@ export default function InboxPage() {
                 >
                   <SwipeableRow
                     disabled={selectMode}
-                    onSwipeLeft={() => removeTask(task.id)}
+                    onSwipeLeft={() => handleDelete(task)}
                     onSwipeRight={() => toggleDone(task.id)}
                   >
                     <div
@@ -216,7 +244,7 @@ export default function InboxPage() {
 
                         <button
                           type="button"
-                          onClick={() => removeTask(task.id)}
+                          onClick={() => handleDelete(task)}
                           aria-label="Видалити задачу"
                           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-red-600/10 text-red-600 transition-all duration-200 active:scale-90 active:bg-red-600/20"
                         >
@@ -303,6 +331,25 @@ export default function InboxPage() {
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-white/10 text-white transition active:scale-90"
           >
             <XIcon className="h-5 w-5" />
+          </button>
+        </div>
+      )}
+
+      {pendingDelete && (
+        <div
+          className={`absolute right-4 left-4 flex animate-fade-up items-center gap-3 rounded-xl bg-brand-dark p-3 shadow-card-hover ${
+            selectMode && selectedIds.size > 0 ? "bottom-36" : "bottom-20"
+          }`}
+        >
+          <p className="flex-1 truncate text-sm text-white">
+            Видалено: <span className="font-medium">{pendingDelete.text}</span>
+          </p>
+          <button
+            type="button"
+            onClick={handleUndo}
+            className="shrink-0 font-condensed text-sm font-bold uppercase tracking-wide text-brand-green transition active:scale-95"
+          >
+            Скасувати
           </button>
         </div>
       )}
