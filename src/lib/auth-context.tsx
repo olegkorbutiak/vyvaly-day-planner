@@ -30,6 +30,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      // Google only returns a refresh token on the very first consent, so
+      // capture it here once and store it for the calendar-sync API route.
+      if (session?.provider_refresh_token && session.user) {
+        supabase
+          ?.from("user_google_tokens")
+          .upsert({ user_id: session.user.id, refresh_token: session.provider_refresh_token })
+          .then(({ error }) => error && console.error("Failed to store Google token", error));
+      }
     });
 
     return () => subscription.subscription.unsubscribe();
@@ -38,7 +46,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithGoogle = useCallback(() => {
     supabase?.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: window.location.origin },
+      options: {
+        redirectTo: window.location.origin,
+        scopes: "https://www.googleapis.com/auth/calendar",
+        queryParams: { access_type: "offline", prompt: "consent" },
+      },
     });
   }, []);
 
