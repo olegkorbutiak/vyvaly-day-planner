@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { addDaysISO } from "@/lib/date-utils";
+import { googleFetch, refreshAccessToken } from "@/lib/google-calendar";
 
 const CALENDAR_NAME = "My Perfect Day Planner";
 const TIME_ZONE = "Europe/Kyiv";
 const DEFAULT_DURATION_MINUTES = 30;
-const REQUEST_TIMEOUT_MS = 10000;
 
 type TaskRow = {
   id: string;
@@ -17,39 +17,6 @@ type TaskRow = {
   archived: boolean;
   google_event_id: string | null;
 };
-
-function googleFetch(url: string, accessToken: string, init: RequestInit = {}) {
-  return fetch(url, {
-    ...init,
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    headers: {
-      ...init.headers,
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-  });
-}
-
-async function refreshAccessToken(refreshToken: string): Promise<string | null> {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  if (!clientId || !clientSecret) return null;
-
-  const response = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
-      refresh_token: refreshToken,
-      grant_type: "refresh_token",
-    }),
-  });
-  if (!response.ok) return null;
-  const data = await response.json();
-  return data.access_token ?? null;
-}
 
 async function ensureCalendar(accessToken: string): Promise<string | null> {
   const response = await googleFetch(

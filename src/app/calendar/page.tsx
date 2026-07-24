@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   CalendarIcon,
@@ -35,8 +35,12 @@ import { getHolidayForDate } from "@/lib/holidays";
 type ViewMode = "day" | "week" | "month";
 
 export default function CalendarPage() {
-  const { tasks: allTasks, toggleDone } = useTasks();
+  const { tasks: allTasks, toggleDone, pullGoogleCalendar } = useTasks();
   const tasks = useMemo(() => allTasks.filter((t) => !t.archived), [allTasks]);
+
+  useEffect(() => {
+    pullGoogleCalendar();
+  }, [pullGoogleCalendar]);
   const todayISO = useTodayISO();
   const weatherLocation = useWeatherLocation();
   const { forecast } = useForecast(weatherLocation);
