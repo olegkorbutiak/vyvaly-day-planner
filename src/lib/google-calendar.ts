@@ -1,5 +1,27 @@
 const REQUEST_TIMEOUT_MS = 10000;
 
+export const TIME_ZONE = "Europe/Kyiv";
+
+/** Converts an ISO dateTime (in any offset, incl. UTC "Z") to its Europe/Kyiv wall-clock date and time. */
+export function toZonedDateAndTime(isoDateTime: string): { date: string; time: string } {
+  const instant = new Date(isoDateTime);
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+  const parts = formatter.formatToParts(instant);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "00";
+  return {
+    date: `${get("year")}-${get("month")}-${get("day")}`,
+    time: `${get("hour")}:${get("minute")}`,
+  };
+}
+
 export function googleFetch(url: string, accessToken: string, init: RequestInit = {}) {
   return fetch(url, {
     ...init,

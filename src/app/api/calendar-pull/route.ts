@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { googleFetch, refreshAccessToken } from "@/lib/google-calendar";
+import { googleFetch, refreshAccessToken, toZonedDateAndTime } from "@/lib/google-calendar";
 
 const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
 
@@ -29,14 +29,13 @@ function eventToTaskFields(event: GoogleEvent) {
   }
 
   if (event.start?.dateTime) {
-    const [datePart, timePart] = event.start.dateTime.split("T");
-    const dueTime = timePart.slice(0, 5);
+    const { date: dueDate, time: dueTime } = toZonedDateAndTime(event.start.dateTime);
     const durationMinutes = event.end?.dateTime
       ? Math.round(
           (new Date(event.end.dateTime).getTime() - new Date(event.start.dateTime).getTime()) / 60000,
         )
       : null;
-    return { text, dueDate: datePart, dueTime, durationMinutes };
+    return { text, dueDate, dueTime, durationMinutes };
   }
 
   return null;

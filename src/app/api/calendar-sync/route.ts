@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { addDaysISO } from "@/lib/date-utils";
-import { googleFetch, refreshAccessToken } from "@/lib/google-calendar";
+import { googleFetch, refreshAccessToken, TIME_ZONE } from "@/lib/google-calendar";
 
 const CALENDAR_NAME = "My Perfect Day Planner";
-const TIME_ZONE = "Europe/Kyiv";
 const DEFAULT_DURATION_MINUTES = 30;
 
 type TaskRow = {
