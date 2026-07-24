@@ -23,6 +23,9 @@ const robotoCondensed = Roboto_Condensed({
 export const metadata: Metadata = {
   title: "AI-планер дня",
   description: "Диктуй або пиши все, що в голові — розберемо на задачі пізніше.",
+  verification: {
+    google: "O6Zglftw6sTguYK2VKZBQ6OwYG0tQWJDmFKsjrakjbo",
+  },
 };
 
 export const viewport: Viewport = {
