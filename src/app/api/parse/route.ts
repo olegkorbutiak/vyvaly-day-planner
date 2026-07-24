@@ -18,7 +18,7 @@ const WEEKDAY_KEYS = [
 
 const SYSTEM_PROMPT =
   "Ти розбираєш нотатку користувача українською мовою на окремі конкретні задачі, визначаючи для кожної дату й час. " +
-  'Поверни лише JSON-об\'єкт форми {"tasks": [{"title": "...", "date": "today", "time": "15:00"}]}. ' +
+  'Поверни лише JSON-об\'єкт форми {"tasks": [{"title": "...", "date": "today", "time": "15:00"}], "actions": []}. ' +
   '"title" — коротке формулювання задачі у наказовому стилі, без слів на позначення дати/часу всередині, без нумерації. ' +
   '"date" — одне з: "today" (сьогодні), "tomorrow" (завтра), "day_after_tomorrow" (післязавтра), ' +
   '"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday" (якщо згадано конкретний день тижня — ' +
@@ -40,11 +40,31 @@ const SYSTEM_PROMPT =
   "Слова типу \"додай задачу\", \"запиши\", \"нагадай\" — це не сама задача, а лише вказівка щось занотувати; " +
   "title має описувати ЩО саме робити, взяте з решти тексту після цих слів. Якщо після прибирання таких " +
   "службових слів у тексті не залишилось жодної конкретної дії, використай як title рештку введеного тексту " +
-  "буквально — ніколи не вигадуй сторонню задачу, якої немає у вхідному тексті.";
+  "буквально — ніколи не вигадуй сторонню задачу, якої немає у вхідному тексті. " +
+  "Крім нових задач, текст може містити КОМАНДИ про вже ІСНУЮЧІ задачі — напр. «перенеси зустріч на завтра», " +
+  "«скасуй купити хліб», «відміни зустріч з лікарем», «познач виконаним подзвонити мамі», «зустріч більше не " +
+  "потрібна». Після тексту користувача, у розділі \"Існуючі задачі:\", наведено список у форматі " +
+  "\"id: назва (дата час)\". Якщо команда явно стосується ОДНІЄЇ з цих задач за смислом назви — додай об'єкт " +
+  "у масив \"actions\": {\"id\": \"<id саме з цього списку>\", \"type\": \"reschedule\"|\"cancel\"|\"complete\"|" +
+  "\"uncomplete\"}. \"reschedule\" — перенести на нову дату/час (додатково вкажи \"date\" і \"time\" за тими ж " +
+  "правилами, що й для нових задач). \"cancel\" — скасувати/видалити задачу. \"complete\" — позначити " +
+  "виконаною. \"uncomplete\" — скасувати позначку виконано. " +
+  "ДУЖЕ ВАЖЛИВО щодо збігу: порівнюй ЗМІСТ дії, а не окремі спільні слова. Наприклад, якщо в списку є " +
+  "\"Зустріч з лікарем\", а команда \"скасуй зустріч з інопланетянами\" — це про зовсім іншу, вигадану подію, " +
+  "яка не відповідає жодній реальній задачі зі списку, тому action додавати НЕ треба, навіть попри спільне " +
+  "слово \"зустріч\". Додавай action лише тоді, коли впевнений, що команда описує САМЕ ту задачу зі списку " +
+  "(збігається головний предмет дії — з ким/куди/що, а не лише один загальний іменник). Якщо сумніваєшся або " +
+  "жодна задача явно не підходить — НЕ додавай action і НІКОЛИ не вигадуй id, якого немає у списку. Той самий " +
+  "текст може одночасно містити і нову задачу, і команду про існуючу. Якщо команд про існуючі задачі немає — " +
+  "\"actions\": [].";
 
 const ABSOLUTE_DATE_PATTERN = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+const ACTION_TYPES = ["reschedule", "cancel", "complete", "uncomplete"] as const;
 
 type ParsedTask = { title: string; date: string; time: string | null };
+type ActionType = (typeof ACTION_TYPES)[number];
+type ParsedAction = { id: string; type: ActionType; date: string; time: string | null };
+type ExistingTask = { id: string; text: string; dueDate: string | null; dueTime: string | null };
 
 function isParsedDate(value: unknown): value is string {
   return (
@@ -61,9 +81,30 @@ function isValidTime(value: unknown): value is string {
   return typeof value === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 }
 
-type RequestResult = { tasks: ParsedTask[]; rateLimited: boolean };
+function isActionType(value: unknown): value is ActionType {
+  return typeof value === "string" && (ACTION_TYPES as readonly string[]).includes(value);
+}
 
-async function requestTasks(apiKey: string, model: string, text: string): Promise<RequestResult> {
+function formatExistingTasks(existingTasks: ExistingTask[]): string {
+  if (existingTasks.length === 0) return "(немає)";
+  return existingTasks
+    .map((t) => {
+      const when = t.dueDate ? `${t.dueDate}${t.dueTime ? " " + t.dueTime : ""}` : "без дати";
+      return `${t.id}: ${t.text} (${when})`;
+    })
+    .join("\n");
+}
+
+type RequestResult = { tasks: ParsedTask[]; actions: ParsedAction[]; rateLimited: boolean };
+
+async function requestTasks(
+  apiKey: string,
+  model: string,
+  text: string,
+  existingTasks: ExistingTask[],
+): Promise<RequestResult> {
+  const userMessage = `${text}\n\nІснуючі задачі:\n${formatExistingTasks(existingTasks)}`;
+
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -78,14 +119,15 @@ async function requestTasks(apiKey: string, model: string, text: string): Promis
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: text },
+        { role: "user", content: userMessage },
       ],
     }),
   }).catch(() => null);
 
-  if (!response) return { tasks: [], rateLimited: false };
-  if (response.status === 429) return { tasks: [], rateLimited: true };
-  if (!response.ok) return { tasks: [], rateLimited: false };
+  const empty = { tasks: [], actions: [], rateLimited: false };
+  if (!response) return empty;
+  if (response.status === 429) return { ...empty, rateLimited: true };
+  if (!response.ok) return empty;
 
   const data = await response.json();
   const content: string = data?.choices?.[0]?.message?.content ?? "";
@@ -94,28 +136,47 @@ async function requestTasks(apiKey: string, model: string, text: string): Promis
   try {
     parsed = JSON.parse(content);
   } catch {
-    return { tasks: [], rateLimited: false };
+    return empty;
   }
 
-  const tasks = (parsed as { tasks?: unknown })?.tasks;
-  if (!Array.isArray(tasks)) return { tasks: [], rateLimited: false };
+  const rawTasks = (parsed as { tasks?: unknown })?.tasks;
+  const tasks = Array.isArray(rawTasks)
+    ? rawTasks
+        .filter((t): t is { title: unknown; date: unknown; time: unknown } =>
+          typeof t === "object" && t !== null,
+        )
+        .filter((t) => typeof t.title === "string" && t.title.trim())
+        .map((t) => {
+          const date = isParsedDate(t.date) ? t.date : "none";
+          return {
+            title: sanitizeUkrainian((t.title as string).trim()),
+            date,
+            time: date !== "none" && isValidTime(t.time) ? t.time : null,
+          };
+        })
+    : [];
 
-  return {
-    tasks: tasks
-      .filter((t): t is { title: unknown; date: unknown; time: unknown } =>
-        typeof t === "object" && t !== null,
-      )
-      .filter((t) => typeof t.title === "string" && t.title.trim())
-      .map((t) => {
-        const date = isParsedDate(t.date) ? t.date : "none";
-        return {
-          title: sanitizeUkrainian((t.title as string).trim()),
-          date,
-          time: date !== "none" && isValidTime(t.time) ? t.time : null,
-        };
-      }),
-    rateLimited: false,
-  };
+  const validIds = new Set(existingTasks.map((t) => t.id));
+  const rawActions = (parsed as { actions?: unknown })?.actions;
+  const actions = Array.isArray(rawActions)
+    ? rawActions
+        .filter((a): a is { id: unknown; type: unknown; date?: unknown; time?: unknown } =>
+          typeof a === "object" && a !== null,
+        )
+        .filter((a) => typeof a.id === "string" && validIds.has(a.id) && isActionType(a.type))
+        .map((a) => {
+          const type = a.type as ActionType;
+          const date = type === "reschedule" && isParsedDate(a.date) ? (a.date as string) : "none";
+          return {
+            id: a.id as string,
+            type,
+            date,
+            time: type === "reschedule" && isValidTime(a.time) ? (a.time as string) : null,
+          };
+        })
+    : [];
+
+  return { tasks, actions, rateLimited: false };
 }
 
 function toDueDate(date: string): string | null {
@@ -146,18 +207,35 @@ export async function POST(request: Request) {
   if (!text) {
     return NextResponse.json({ error: "Порожній текст" }, { status: 400 });
   }
+  const existingTasks: ExistingTask[] = Array.isArray(body?.existingTasks)
+    ? body.existingTasks
+        .filter(
+          (t: unknown): t is ExistingTask =>
+            typeof t === "object" &&
+            t !== null &&
+            typeof (t as ExistingTask).id === "string" &&
+            typeof (t as ExistingTask).text === "string",
+        )
+        .slice(0, 80)
+    : [];
 
   const model = process.env.GROQ_MODEL ?? DEFAULT_MODEL;
 
   let tasks: ParsedTask[] = [];
+  let actions: ParsedAction[] = [];
   let rateLimited = false;
-  for (let attempt = 0; attempt < MAX_ATTEMPTS && tasks.length === 0 && !rateLimited; attempt++) {
-    const result = await requestTasks(apiKey, model, text);
+  for (
+    let attempt = 0;
+    attempt < MAX_ATTEMPTS && tasks.length === 0 && actions.length === 0 && !rateLimited;
+    attempt++
+  ) {
+    const result = await requestTasks(apiKey, model, text, existingTasks);
     tasks = result.tasks;
+    actions = result.actions;
     rateLimited = result.rateLimited;
   }
 
-  if (tasks.length === 0) {
+  if (tasks.length === 0 && actions.length === 0) {
     const error = rateLimited
       ? "Перевищено денний ліміт безкоштовних AI-запитів. Спробуйте пізніше або скористайтеся «Зберегти без AI»."
       : "AI не зміг розпізнати задачі";
@@ -169,5 +247,15 @@ export async function POST(request: Request) {
       const dueDate = toDueDate(t.date);
       return { title: t.title, dueDate, dueTime: dueDate ? t.time : null };
     }),
+    actions: actions
+      .map((a) => {
+        if (a.type === "reschedule") {
+          const dueDate = toDueDate(a.date);
+          if (!dueDate) return null;
+          return { id: a.id, type: a.type, dueDate, dueTime: a.time };
+        }
+        return { id: a.id, type: a.type };
+      })
+      .filter((a): a is NonNullable<typeof a> => a !== null),
   });
 }

@@ -100,6 +100,7 @@ type TasksContextValue = {
   updateText: (id: string, text: string) => void;
   setDueDate: (id: string, dueDate: string | null) => void;
   setDueTime: (id: string, dueTime: string | null) => void;
+  rescheduleTask: (id: string, dueDate: string | null, dueTime: string | null) => void;
   setDuration: (id: string, durationMinutes: number | null) => void;
   setDueDateForMany: (ids: string[], dueDate: string | null) => void;
   removeTask: (id: string) => void;
@@ -162,10 +163,17 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     };
   }, [userId, authLoading]);
 
+  // Takes an updater (not a precomputed array) so that several mutations
+  // fired in the same tick (e.g. multiple AI actions from one command) each
+  // see the others' changes instead of clobbering them via a stale `tasks`
+  // closure.
   const applyChange = useCallback(
-    (next: Task[]) => {
-      setTasks(next);
-      if (!userId) writeLocalTasks(next);
+    (updater: (prev: Task[]) => Task[]) => {
+      setTasks((prev) => {
+        const next = updater(prev);
+        if (!userId) writeLocalTasks(next);
+        return next;
+      });
     },
     [userId],
   );
@@ -228,11 +236,11 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       const trimmed = text.trim();
       if (!trimmed) return;
       const created = createTask(trimmed);
-      applyChange([created, ...tasks]);
+      applyChange((prev) => [created, ...prev]);
       cloudInsert([created]);
       if (created.dueDate) syncCalendar(created.id);
     },
-    [tasks, applyChange, cloudInsert, syncCalendar],
+    [applyChange, cloudInsert, syncCalendar],
   );
 
   const addTasks = useCallback(
@@ -246,11 +254,11 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         .filter((t) => t.text)
         .map((t) => createTask(t.text, t.dueDate, t.dueTime));
       if (created.length === 0) return;
-      applyChange([...created, ...tasks]);
+      applyChange((prev) => [...created, ...prev]);
       cloudInsert(created);
       created.forEach((t) => t.dueDate && syncCalendar(t.id));
     },
-    [tasks, applyChange, cloudInsert, syncCalendar],
+    [applyChange, cloudInsert, syncCalendar],
   );
 
   const toggleDone = useCallback(
@@ -258,7 +266,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       const target = tasks.find((t) => t.id === id);
       if (!target) return;
       const done = !target.done;
-      applyChange(tasks.map((t) => (t.id === id ? { ...t, done } : t)));
+      applyChange((prev) => prev.map((t) => (t.id === id ? { ...t, done } : t)));
       cloudUpdate([id], { done });
     },
     [tasks, applyChange, cloudUpdate],
@@ -266,17 +274,17 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
 
   const updateText = useCallback(
     (id: string, text: string) => {
-      applyChange(tasks.map((t) => (t.id === id ? { ...t, text } : t)));
+      applyChange((prev) => prev.map((t) => (t.id === id ? { ...t, text } : t)));
       cloudUpdate([id], { text });
       syncCalendar(id);
     },
-    [tasks, applyChange, cloudUpdate, syncCalendar],
+    [applyChange, cloudUpdate, syncCalendar],
   );
 
   const setDueDate = useCallback(
     (id: string, dueDate: string | null) => {
-      applyChange(
-        tasks.map((t) =>
+      applyChange((prev) =>
+        prev.map((t) =>
           t.id === id
             ? {
                 ...t,
@@ -293,32 +301,64 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       });
       syncCalendar(id);
     },
-    [tasks, applyChange, cloudUpdate, syncCalendar],
+    [applyChange, cloudUpdate, syncCalendar],
   );
 
   const setDueTime = useCallback(
     (id: string, dueTime: string | null) => {
-      applyChange(tasks.map((t) => (t.id === id ? { ...t, dueTime } : t)));
+      applyChange((prev) => prev.map((t) => (t.id === id ? { ...t, dueTime } : t)));
       cloudUpdate([id], { due_time: dueTime });
       syncCalendar(id);
     },
-    [tasks, applyChange, cloudUpdate, syncCalendar],
+    [applyChange, cloudUpdate, syncCalendar],
+  );
+
+  // Sets due date and (optionally) time together in one state update, so
+  // callers that need both (e.g. an AI "reschedule" action) don't lose one
+  // field to the other via two back-to-back calls racing against the same
+  // stale state. A null dueTime means "leave the existing time as is", not
+  // "clear it" — pass setDueTime/setDueDate directly if you need that.
+  const rescheduleTask = useCallback(
+    (id: string, dueDate: string | null, dueTime: string | null) => {
+      applyChange((prev) =>
+        prev.map((t) =>
+          t.id === id
+            ? {
+                ...t,
+                dueDate,
+                dueTime: dueDate ? dueTime ?? t.dueTime : null,
+                durationMinutes: dueDate ? t.durationMinutes : null,
+              }
+            : t,
+        ),
+      );
+      cloudUpdate([id], {
+        due_date: dueDate,
+        ...(dueDate
+          ? dueTime
+            ? { due_time: dueTime }
+            : {}
+          : { due_time: null, duration_minutes: null }),
+      });
+      syncCalendar(id);
+    },
+    [applyChange, cloudUpdate, syncCalendar],
   );
 
   const setDuration = useCallback(
     (id: string, durationMinutes: number | null) => {
-      applyChange(tasks.map((t) => (t.id === id ? { ...t, durationMinutes } : t)));
+      applyChange((prev) => prev.map((t) => (t.id === id ? { ...t, durationMinutes } : t)));
       cloudUpdate([id], { duration_minutes: durationMinutes });
       syncCalendar(id);
     },
-    [tasks, applyChange, cloudUpdate, syncCalendar],
+    [applyChange, cloudUpdate, syncCalendar],
   );
 
   const setDueDateForMany = useCallback(
     (ids: string[], dueDate: string | null) => {
       const idSet = new Set(ids);
-      applyChange(
-        tasks.map((t) =>
+      applyChange((prev) =>
+        prev.map((t) =>
           idSet.has(t.id)
             ? {
                 ...t,
@@ -335,36 +375,38 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       });
       ids.forEach((id) => syncCalendar(id));
     },
-    [tasks, applyChange, cloudUpdate, syncCalendar],
+    [applyChange, cloudUpdate, syncCalendar],
   );
 
   const removeTask = useCallback(
     (id: string) => {
       const archivedAt = Date.now();
-      applyChange(tasks.map((t) => (t.id === id ? { ...t, archived: true, archivedAt } : t)));
+      applyChange((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, archived: true, archivedAt } : t)),
+      );
       cloudUpdate([id], { archived: true, archived_at: new Date(archivedAt).toISOString() });
       syncCalendar(id);
     },
-    [tasks, applyChange, cloudUpdate, syncCalendar],
+    [applyChange, cloudUpdate, syncCalendar],
   );
 
   const restoreTask = useCallback(
     (id: string) => {
-      applyChange(
-        tasks.map((t) => (t.id === id ? { ...t, archived: false, archivedAt: null } : t)),
+      applyChange((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, archived: false, archivedAt: null } : t)),
       );
       cloudUpdate([id], { archived: false, archived_at: null });
       syncCalendar(id);
     },
-    [tasks, applyChange, cloudUpdate, syncCalendar],
+    [applyChange, cloudUpdate, syncCalendar],
   );
 
   const deleteForever = useCallback(
     (id: string) => {
-      applyChange(tasks.filter((t) => t.id !== id));
+      applyChange((prev) => prev.filter((t) => t.id !== id));
       cloudDelete(id);
     },
-    [tasks, applyChange, cloudDelete],
+    [applyChange, cloudDelete],
   );
 
   const refreshFromCloud = useCallback(async () => {
@@ -404,6 +446,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         updateText,
         setDueDate,
         setDueTime,
+        rescheduleTask,
         setDuration,
         setDueDateForMany,
         removeTask,

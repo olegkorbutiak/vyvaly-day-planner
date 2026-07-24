@@ -15,8 +15,16 @@ function autoResizeTextarea(el: HTMLTextAreaElement | null) {
   el.style.height = `${Math.max(el.scrollHeight, lineHeight * 3)}px`;
 }
 
+type ActionType = "reschedule" | "cancel" | "complete" | "uncomplete";
+type ParsedAction = {
+  id: string;
+  type: ActionType;
+  dueDate?: string | null;
+  dueTime?: string | null;
+};
+
 export default function CapturePage() {
-  const { addTask, addTasks } = useTasks();
+  const { tasks, addTask, addTasks, rescheduleTask, removeTask, toggleDone } = useTasks();
   const [text, setText] = useState("");
   const [baseText, setBaseText] = useState("");
   const [savedMessage, setSavedMessage] = useState("");
@@ -50,32 +58,69 @@ export default function CapturePage() {
     flashSaved("Додано у Вхідні");
   };
 
+  const applyAction = (action: ParsedAction) => {
+    const target = tasks.find((t) => t.id === action.id);
+    if (!target) return false;
+    if (action.type === "reschedule") {
+      rescheduleTask(action.id, action.dueDate ?? null, action.dueTime ?? null);
+    } else if (action.type === "cancel") {
+      removeTask(action.id);
+    } else if (action.type === "complete") {
+      if (!target.done) toggleDone(action.id);
+    } else if (action.type === "uncomplete") {
+      if (target.done) toggleDone(action.id);
+    }
+    return true;
+  };
+
   const handleParse = async () => {
     if (!text.trim() || isParsing) return;
     setIsParsing(true);
     setParseError("");
     try {
+      const existingTasks = tasks
+        .filter((t) => !t.archived)
+        .map((t) => ({ id: t.id, text: t.text, dueDate: t.dueDate, dueTime: t.dueTime }));
+
       const response = await fetch("/api/parse", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, existingTasks }),
       });
       const data: {
         tasks?: { title: string; dueDate: string | null; dueTime: string | null }[];
+        actions?: ParsedAction[];
         error?: string;
       } = await response.json();
-      if (!response.ok || !data.tasks) throw new Error(data.error);
-      addTasks(
-        data.tasks.map((t) => ({ text: t.title, dueDate: t.dueDate, dueTime: t.dueTime })),
-      );
+      if (!response.ok || (!data.tasks && !data.actions)) throw new Error(data.error);
+
+      const newTasks = data.tasks ?? [];
+      const newActions = data.actions ?? [];
+
+      if (newTasks.length > 0) {
+        addTasks(newTasks.map((t) => ({ text: t.title, dueDate: t.dueDate, dueTime: t.dueTime })));
+      }
+      const appliedActions = newActions.filter(applyAction);
+
       setText("");
       setBaseText("");
-      const scheduledCount = data.tasks.filter((t) => t.dueDate !== null).length;
-      const message =
-        data.tasks.length === 1 ? "Додано 1 задачу" : `Додано ${data.tasks.length} задачі`;
-      flashSaved(
-        scheduledCount > 0 ? `${message} (${scheduledCount} — у календарі)` : `${message} у Вхідні`,
-      );
+
+      const parts: string[] = [];
+      if (newTasks.length > 0) {
+        const scheduledCount = newTasks.filter((t) => t.dueDate !== null).length;
+        const label = newTasks.length === 1 ? "додано 1 задачу" : `додано ${newTasks.length} задачі`;
+        parts.push(scheduledCount > 0 ? `${label} (${scheduledCount} — у календарі)` : label);
+      }
+      const rescheduled = appliedActions.filter((a) => a.type === "reschedule").length;
+      const cancelled = appliedActions.filter((a) => a.type === "cancel").length;
+      const completed = appliedActions.filter(
+        (a) => a.type === "complete" || a.type === "uncomplete",
+      ).length;
+      if (rescheduled > 0) parts.push(`перенесено ${rescheduled}`);
+      if (cancelled > 0) parts.push(`скасовано ${cancelled}`);
+      if (completed > 0) parts.push(`позначено ${completed}`);
+
+      flashSaved(parts.length > 0 ? parts.join(", ") : "Готово");
     } catch (err) {
       setParseError(
         err instanceof Error && err.message
