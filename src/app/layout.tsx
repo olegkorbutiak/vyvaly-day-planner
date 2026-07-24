@@ -4,6 +4,7 @@ import { BottomNav } from "@/components/bottom-nav";
 import { LionWatermark } from "@/components/lion-watermark";
 import { MountainSkyline } from "@/components/mountain-skyline";
 import { ReminderScheduler } from "@/components/reminder-scheduler";
+import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { AuthProvider } from "@/lib/auth-context";
 import { TasksProvider } from "@/lib/tasks-context";
 import "./globals.css";
@@ -23,6 +24,19 @@ const robotoCondensed = Roboto_Condensed({
 export const metadata: Metadata = {
   title: "AI-планер дня",
   description: "Диктуй або пиши все, що в голові — розберемо на задачі пізніше.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Day Planner",
+  },
+  icons: {
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
   verification: {
     google: "O6Zglftw6sTguYK2VKZBQ6OwYG0tQWJDmFKsjrakjbo",
   },
@@ -33,6 +47,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: "cover",
+  themeColor: "#04170f",
 };
 
 export default function RootLayout({
@@ -45,6 +60,7 @@ export default function RootLayout({
       <body className="text-brand-text">
         <AuthProvider>
           <TasksProvider>
+            <ServiceWorkerRegister />
             <ReminderScheduler />
             <div className="relative flex h-dvh flex-col overflow-hidden overscroll-none">
               <MountainSkyline />
